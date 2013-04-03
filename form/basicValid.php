@@ -1,0 +1,110 @@
+<?php $title="基础表单验证"?>
+<?php include("../templates/header.php"); ?>  
+  <div class="container">
+    <div class="row">
+      <div class="span8">
+        <h2>简介</h2>
+        <p>表单验证，我们提供类似于jquery validtion的写法，添加更加灵活的实现方式：</p>
+        <ol>
+          <li>表单html上添加属性：<code>data-rules</code></li>
+          <li>JS生成表单，并在表单配置项中配置： <code>rules</code></li>
+          <li>在JS配置项上使用 <code>validators</code>属性，配置分组或者字段的验证函数。</li>
+          <li>可以在html上配置 <code>data-messages</code>或者<code>messages</code>上配置错误的提示信息。</li>
+        </ol>
+        <p>右边仅提供简单的表单验证，复杂的表单验证请参看：<a class="page-action" data-id="advalid" href="#">复杂表单验证</a></p>
+        <p>表单的异步验证请参看：<a class="page-action" data-id="remote" href="#">远程调用</a></p>
+      </div>
+      <div class="span16">
+        <h2>示例</h2>
+        <p>下面的验证示例是提供的默认验证：</p>
+        <form id="J_Form" action="" class="row">
+          <div class="span16">
+            <div class="well">
+              <label>必填项：</label><input name="a" data-rules="{required:true}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;必填项：&lt;/label&gt;&lt;input name="a" data-rules="{required:true}" type="text"&gt;
+            </pre>
+            <div class="well">
+              <label>最大值：</label><input name="b" data-rules="{max:100}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;最大值：&lt;/label&gt;&lt;input name="b" data-rules="{max:100}" type="text"&gt;
+            </pre>
+            <div class="well">
+              <label>最小值：</label><input name="c" data-rules="{min:10}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;最小值：&lt;/label&gt;&lt;input name="c" data-rules="{min:10}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>最小长度：</label><input name="d" data-rules="{minlength:5}" type="text">
+            </div>
+             <pre class="prettyprint linenums">
+&lt;label&gt;最小长度：&lt;/label&gt;&lt;input name="d" data-rules="{minlength:5}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>最大长度：</label><input name="e" data-rules="{maxlength:5}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;最大长度：&lt;/label&gt;&lt;input name="e" data-rules="{maxlength:5}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>第一次输入：</label><input id="f1" name="f1" type="text"><br/>
+              <label>第二次输入：</label><input name="f2" data-rules="{equalTo:'#f1'}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;第一次输入：&lt;/label&gt;&lt;input id="f1" name="f1" type="text"&gt;&lt;br/&gt;
+&lt;label&gt;第二次输入：&lt;/label&gt;&lt;input name="f2" data-rules="{equalTo:'#f1'}" type="text"&gt;              
+            </pre>
+             <div class="well">
+              <label>数字值：</label><input name="g" data-rules="{number:true}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;数字值：&lt;/label&gt;&lt;input name="g" data-rules="{number:true}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>日期值：</label><input class="calendar" name="h" data-rules="{date:true}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;日期值：&lt;/label&gt;&lt;input class="calendar" name="h" data-rules="{date:true}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>邮箱值：</label><input name="i" data-rules="{email:true}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;邮箱值：&lt;/label&gt;&lt;input name="i" data-rules="{email:true}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>正则表达式：</label><input name="j" data-rules="{regex:/^d+$/}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;正则表达式：&lt;/label&gt;&lt;input name="j" data-rules="{regex:/^d+$/}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>最小日期：</label><input class="calendar" name="k" data-rules="{minDate:'2014-01-01'}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;最小日期：&lt;/label&gt;&lt;input class="calendar" name="k" data-rules="{minDate:'2014-01-01'}" type="text"&gt;              
+            </pre>
+            <div class="well">
+              <label>最大日期：</label><input class="calendar" name="l" data-rules="{maxDate:'2012-01-01'}" type="text">
+            </div>
+            <pre class="prettyprint linenums">
+&lt;label&gt;最大日期：&lt;/label&gt;&lt;input class="calendar" name="l" data-rules="{maxDate:'2012-01-01'}" type="text"&gt;              
+            </pre>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  </div>
+<?php include("../templates/script.php"); ?> 
+<script type="text/javascript">
+  BUI.use('bui/form',function (Form) {
+    new Form.Form({
+      srcNode : '#J_Form'
+    }).render();
+  });
+</script>
+<?php include("../templates/footer.php"); ?>  
