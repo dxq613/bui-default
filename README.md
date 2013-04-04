@@ -12,26 +12,27 @@ bui-default
 ## 应用构成
 
 - 框架页
--- [菜单配置](http://www.builive.com/apps/default/main.php#menu/main-menu)
--- [页面跳转](http://www.builive.com/apps/default/main.php#menu/quick)
+
+ 1. [菜单配置](http://www.builive.com/apps/default/main.php#menu/main-menu)
+ 2. [页面跳转](http://www.builive.com/apps/default/main.php#menu/quick)
 
 - 表单页
--- [表单验证](http://www.builive.com/apps/default/main.php#form/valid)
--- [表单分组](http://www.builive.com/apps/default/main.php#form/group)
--- [表单联动](http://www.builive.com/apps/default/main.php#form/depends)
--- [表单嵌入可编辑表格](http://www.builive.com/apps/default/main.php#form/form-grid)
--- [可编辑表格跟弹出框](http://www.builive.com/apps/default/main.php#form/form-dialog-grid)
+ 1. [表单验证](http://www.builive.com/apps/default/main.php#form/valid)
+ 2. [表单分组](http://www.builive.com/apps/default/main.php#form/group)
+ 3. [表单联动](http://www.builive.com/apps/default/main.php#form/depends)
+ 4. [表单嵌入可编辑表格](http://www.builive.com/apps/default/main.php#form/form-grid)
+ 5. [可编辑表格跟弹出框](http://www.builive.com/apps/default/main.php#form/form-dialog-grid)
 
 - 搜索页
--- [搜索页示例](http://www.builive.com/apps/default/main.php#search/example)
--- [参数和数据](http://www.builive.com/apps/default/main.php#search/config)
+ 1. [搜索页示例](http://www.builive.com/apps/default/main.php#search/example)
+ 2. [参数和数据](http://www.builive.com/apps/default/main.php#search/config)
 
 - 详情页
--- [详情页布局](http://www.builive.com/apps/default/main.php#detail/example)
+ 1. [详情页布局](http://www.builive.com/apps/default/main.php#detail/example)
 
 - 资源文件
--- [资源文件结构](http://www.builive.com/apps/default/main.php#menu/resource)
--- [js文件引入方式](http://www.builive.com/apps/default/main.php#menu/loader)
+ 1. [资源文件结构](http://www.builive.com/apps/default/main.php#menu/resource)
+ 2. [js文件引入方式](http://www.builive.com/apps/default/main.php#menu/loader)
 
 ## 联系我们
 
