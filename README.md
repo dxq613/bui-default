@@ -12,7 +12,6 @@ bui-default
 ## 应用构成
 
 - 框架页
-
  1. [菜单配置](http://www.builive.com/apps/default/main.php#menu/main-menu)
  2. [页面跳转](http://www.builive.com/apps/default/main.php#menu/quick)
 

@@ -44,7 +44,8 @@
               items:[
                 {id:'code',text:'首页代码',href:'main/code.php'},
                 {id:'main-menu',text:'顶部导航',href:'main/menu.php'},
-                {id:'second-menu',text:'右边菜单',href:'main/second-menu.php'}
+                {id:'second-menu',text:'右边菜单',href:'main/second-menu.php'},
+                {id:'dyna-menu',text:'动态菜单',href:'main/dyna-menu.php'}
               ]
             },{
               text:'页面操作',
