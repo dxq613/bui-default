@@ -161,7 +161,7 @@ iframe {
   background-color: white;
   top: 8px;
   opacity: .15;
-  filter:Alpha(opacity=15);
+  filter: alpha(opacity=15);
   -webkit-border-radius: 2px;
   -moz-border-radius: 2px;
   border-radius: 2px;
