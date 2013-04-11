@@ -1,0 +1,270 @@
+
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <title> 表格跟弹出框联动</title>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+       <link href="../assets/css/dpl-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/bui-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/page.css" rel="stylesheet" type="text/css" />   <!-- 下面的样式，仅是为了显示代码，而不应该在项目中使用-->
+   <link href="../assets/css/prettify.css" rel="stylesheet" type="text/css" />
+   <style type="text/css">
+    code {
+      padding: 0px 4px;
+      color: #d14;
+      background-color: #f7f7f9;
+      border: 1px solid #e1e1e8;
+    }
+   </style>
+ </head>
+ <body>
+  
+  <div class="container">
+    <div id="grid"></div>
+    <p>
+      <button id="btnSave" class="button button-primary">提交</button>
+    </p>
+    <h2>提交结果</h2>
+    <div class="row">
+      <div id="log" class="well span12">
+
+      </div>
+    </div>
+    
+    <div class="row">
+      <div class="span8">
+        <h2>简介</h2>
+        <p>表格跟弹出框联动，有一下需要处理的点：</p>
+        <ol>
+          <li>表单：用于添加删除记录</li>
+          <li>添加操作</li>
+          <li>编辑操作</li>
+          <li>删除操作</li>
+        </ol>
+      </div>
+      <div class="span16">
+        <h3>表格弹出框插件</h3>
+        <p>弹出框跟表格的联动，是作为一个插件的形式提供给开发使用的<code>BUI.Grid.Plugins.DialogEditing</code></p>
+        <p>配置项：</p>
+        <ol>
+          <li><code>contentId</code>: 弹出框显示的内容的id，里面包含一个表单</li>
+          <li><code>triggerCls</code>：点击表格行时触发编辑的 css</li>
+        </ol>
+        <p>在使用插件过程中有以下常用属性：</p>
+        <ol>
+          <li><code>form</code> : 弹出框包含的表单控件</li>
+          <li><code>editor</code> : 编辑器控件</li>
+          <li><code>record</code> : 当前编辑的记录</li>
+        </ol>
+        <p>还提供一个事件</p>
+        <ol>
+          <li><code>recordchange</code> : 当编辑的对象发生改变时触发</li>
+        </ol>
+        <h3>列定义</h3>
+        <p>列定义中不需要定义编辑器</p>
+        <pre class="prettyprint linenums">
+ var columns = [{title : '学校名称',dataIndex :'school'},
+  {title : '入学日期',dataIndex :'enter'},
+  {title : '毕业日期',dataIndex :'outter'},
+  {title : '备注',dataIndex :'memo',width:200},
+  {title : '操作',renderer : function(){
+    return '<span class="grid-command btn-edit">编辑</span>';//生成编辑操作
+  }}
+];
+        </pre>
+        <h3>插件初始化</h3>
+        <pre class="prettyprint linenums">
+var editing = new Grid.Plugins.DialogEditing({
+        contentId : 'content',//弹出框显示的内容的id
+        triggerCls : 'btn-edit' //点击表格行时触发编辑的 css
+      });       
+        </pre>
+        <h3>表格初始化</h3>
+        <pre class="prettyprint linenums">
+var grid = new Grid.Grid({
+    render : '#grid',
+    columns : columns,
+    width : 700,
+    forceFit : true,
+    store : store,
+    plugins : [Grid.Plugins.CheckSelection,editing],
+    tbar:{
+      items : [{
+        btnCls : 'button button-small',
+        text : '&lt;i class="icon-plus"&gt;&lt;/i&gt;添加',
+        listeners : {
+          'click' : addFunction
+        }
+      },
+      {
+        btnCls : 'button button-small',
+        text : '&lt;i class="icon-remove"&gt;&lt;/i&gt;删除',
+        listeners : {
+          'click' : delFunction
+        }
+      }]
+    }
+
+  });
+grid.render();
+        </pre>
+      </div>
+    </div>
+    <div class="row">
+      <div class="span8">
+        <h2>其他操作</h2>
+        <p>表格提交时不需要验证。</p>
+        <ol>
+          <li>添加和删除操作需要自定义函数，在上面的按钮栏上注册了<code>addFunction</code>和<code>delFunction</code>事件处理函数</li>
+          <li>提交表格数据，可以异步提交表格，或者将表格数据保存到表单的隐藏域中，进行提交。 </li>
+          <li>点击行上的编辑操作时，弹出Dialog进行编辑。</li>
+        </ol>
+      </div>
+      <div class="span16">
+        <h3>添加操作</h3>
+        <pre class="prettyprint linenums">
+function addFunction(){
+  var newData = {school :'请输入学校名称'};
+  editing.add(newData); //直接弹出框编辑
+}
+        </pre>
+        <h3>删除操作</h3>
+        <pre class="prettyprint linenums">
+function delFunction(){
+  var selections = grid.getSelection();
+  store.remove(selections);
+}
+        </pre>
+        <h3>提交前保存数据</h3>
+        <pre class="prettyprint linenums">
+var logEl = $('#log'); //可以放到隐藏域中
+$('#btnSave').on('click',function(){//监听form的提交事件
+  var records = store.getResult();
+  logEl.text(BUI.JSON.stringify(records));
+});
+        </pre>
+      </div>
+    </div>
+    <div id="content" class="hide">
+      <form id="J_Form" class="form-horizontal">
+        <div class="row">
+          <div class="control-group span8">
+            <label class="control-label"><s>*</s>学校名称：</label>
+            <div class="controls">
+              <input name="school" type="text" data-rules="{required:true}" class="input-normal control-text">
+            </div>
+          </div>
+          <div class="control-group span8">
+            <label class="control-label"><s>*</s>学生类型：</label>
+            <div class="controls">
+              <select  data-rules="{required:true}"  name="type" class="input-normal"> 
+                <option value="">请选择</option>
+                <option value="zou">走读</option>
+                <option value="zhu">住校</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="control-group span15 ">
+            <label class="control-label">在校日期：</label>
+            <div id="range" class="controls bui-form-group" data-rules="{dateRange : true}">
+              <input name="enter" class="calendar" type="text"><label>&nbsp;-&nbsp;</label><input name="outter" class="calendar" type="text">
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="control-group span15">
+            <label class="control-label">备注：</label>
+            <div class="controls control-row4">
+              <textarea name="memo" class="input-large" type="text"></textarea>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
+  <script type="text/javascript" src="../assets/js/bui-min.js"></script>
+
+  <script type="text/javascript" src="../assets/js/config.js"></script>
+  <script type="text/javascript">
+    BUI.use('common/page');
+  </script>
+  <!-- 仅仅为了显示代码使用，不要在项目中引入使用-->
+  <script type="text/javascript" src="../assets/js/prettify.js"></script>
+  <script type="text/javascript">
+    $(function () {
+      prettyPrint();
+    });
+  </script> 
+<script type="text/javascript">
+  BUI.use(['bui/grid','bui/data'],function (Grid,Data) {
+
+    var columns = [{title : '学校名称',dataIndex :'school'},
+            {title : '入学日期',dataIndex :'enter'},
+            {title : '毕业日期',dataIndex :'outter'},
+            {title : '备注',dataIndex :'memo',width:200},
+            {title : '操作',renderer : function(){
+              return '<span class="grid-command btn-edit">编辑</span>';
+            }}
+          ],
+      //默认的数据
+      data = [
+        {id:'1',school:'武汉第一初级中学',enter:'1999-09-01',type: 'zou',outter:'2002-07-01',memo:'表现优异，多次评为三好学生'},
+        {id:'2',school:'武汉第一高级中学',enter:'2002-09-01',type: 'zou',outter:'2005-07-01',memo:'表现优异，多次评为三好学生'}
+      ],
+      store = new Data.Store({
+        data:data
+      }),
+      editing = new Grid.Plugins.DialogEditing({
+        contentId : 'content',
+        triggerCls : 'btn-edit'
+      }),
+      grid = new Grid.Grid({
+        render : '#grid',
+        columns : columns,
+        width : 700,
+        forceFit : true,
+        store : store,
+        plugins : [Grid.Plugins.CheckSelection,editing],
+        tbar:{
+          items : [{
+            btnCls : 'button button-small',
+            text : '<i class="icon-plus"></i>添加',
+            listeners : {
+              'click' : addFunction
+            }
+          },
+          {
+            btnCls : 'button button-small',
+            text : '<i class="icon-remove"></i>删除',
+            listeners : {
+              'click' : delFunction
+            }
+          }]
+        }
+
+      });
+    grid.render();
+
+    function addFunction(){
+      var newData = {school :'请输入学校名称'};
+      editing.add(newData); //添加记录后，直接编辑
+    }
+
+    function delFunction(){
+      var selections = grid.getSelection();
+      store.remove(selections);
+    }
+    var logEl = $('#log');
+    $('#btnSave').on('click',function(){
+
+      var records = store.getResult();
+      logEl.text(BUI.JSON.stringify(records));
+    });
+  });
+</script>
+
+<body>
+</html> 

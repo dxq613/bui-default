@@ -95,6 +95,9 @@ iframe {
   font-size: 18px;
   line-height: 36px;
 }
+.dl-title a{
+  color:#c1d5ec;
+}
 .dl-log {
   color: #C1D5EC;
   float: right;
