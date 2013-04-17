@@ -479,14 +479,14 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
 
         if(el && el.hasClass(CLS_LAST) && hideList){
           offset = el.offset();
-          offset.top += 7;
+          offset.top += 37;
                   
           offset.left += 2;
           _self._showHideList(offset);
         }
       }).on('mouseout',function(event){
         var toElement = event.toElement;
-        if(toElement && hideList && !$.contains(hideList[0],toElement)){
+        if(toElement && hideList && !$.contains(hideList[0],toElement) && toElement !== hideList[0]){
           _self._hideHideList();
         }
         
@@ -597,7 +597,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
       itemEl.addClass(CLS_LAST);
       itemEl.removeClass(CLS_HIDDEN);
       if(!appendNode){
-        appendNode = $('<span class="'+CLS_HIDE_CURRENT+'">&nbsp;&nbsp;</span>');
+        appendNode = $('<span class="icon icon-white  icon-caret-down '+CLS_HIDE_CURRENT+'">&nbsp;&nbsp;</span>');
       }
       appendNode.appendTo(itemEl.children('.nav-item-inner'));
       _self.set('lastShowItem',item)
