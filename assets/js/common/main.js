@@ -626,7 +626,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
         //如果模块隐藏
         if(sender.hasClass(CLS_HIDDEN) && lastShowItem){
           _self._setLastItem(sender[0]);
-          //setSelectHideItem(index);
+          _self._setSelectHideItem(index);
         }/**/
         navItems.removeClass(CLS_SELECTE);
         sender.addClass(CLS_SELECTE);
@@ -679,6 +679,40 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
       hideList.css('left',offset.left);
       hideList.css('top',offset.top);
       hideList.show();
+    },
+    _setSelectHideItem : function (index) {
+      var _self = this,
+        hideList = _self.get('hideList'),
+        hideItmes = _self.get('hideItmes'),
+        currentItem = null,
+        selectItem = null,
+        selectEl = null,
+        appendNode = null;
+      BUI.each(hideItmes,function(item){
+        var itemEl = $(item);
+        if(itemEl.attr(ATTTR_INDEX) == index){
+          selectItem = item;
+        }
+
+        if(itemEl.hasClass(CLS_LAST)){
+          currentItem = item;
+        }
+      });
+
+      if(currentItem !== selectItem){
+        if(currentItem){
+          appendNode = $(currentItem).find('.dl-hide-current');
+          $(currentItem).removeClass(CLS_LAST);
+        }
+        $(selectItem).addClass(CLS_LAST);
+        if(!appendNode){
+          appendNode = new Node('<span class="dl-hide-current">&nbsp;&nbsp;</span>');
+        }
+        selectEl = $(selectItem);
+        appendNode.appendTo(selectEl.children('.nav-item-inner'));
+        selectEl.prependTo(hideList);
+      }
+
     }
     
   });
