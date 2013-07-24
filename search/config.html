@@ -192,6 +192,62 @@ gridCfg = Search.createGridCfg(columns,{
         </ol>
       </div>
     </div>
+    <div class="row">
+      <div class="span8">
+        <h2>限制输出列</h2>
+        <p>有时候根据不同的角色来输出不同的列，可以通过以下方式：</p>
+        <ol>
+          <li>后台控制列：使用后台脚本控制列的输出</li>
+          <li>前台控制列：前台JS控制列的显示隐藏</li>
+        </ol>
+      </div>
+      <div class="span16">
+        <h3>后台限制输出</h3>
+        <p>以php作为示例：</p>
+        <pre class="prettyprint linenums">
+var columns = [
+  {dataIndex : 'a',title : 'a'},
+  &lt;?php if($user){?&gt;
+  {dataIndex : 'b',title : 'b'},
+  &lt;?php } else{ ?&gt;
+  {dataIndex : 'c',title : 'c'},
+  &lt;?php }?&gt;
+  {dataIndex : 'd',title : 'd'}
+];
+        </pre>
+        <h3>前台控制显示</h3>
+        <p>可以设置列的显示隐藏，使用<code>hide</code>属性</p>
+        <pre class="prettyprint linenums">
+var columns = [
+  {dataIndex : 'a',title : 'a'},
+  {dataIndex : 'b',title : 'b',hide : true},
+  {dataIndex : 'c',title : 'c'},
+  {dataIndex : 'd',title : 'd',hide : true}
+];
+        </pre>
+        <p>你也可用用Js控制</p>
+        <pre class="prettyprint linenums">
+var user = <?php echo $user ?>,
+  columns = [
+  {dataIndex : 'a',title : 'a'},
+  {dataIndex : 'b',title : 'b'},
+  {dataIndex : 'c',title : 'c'},
+  {dataIndex : 'd',title : 'd'}
+];
+
+BUI.each(columns,function(col){
+  if(col.dataIndex == 'b' && user == '1'){
+    col.hide == true;
+  }
+  //else ....
+});
+
+var grid = new Grid({
+  columns : columns
+});
+        </pre>
+      </div>
+    </div>
   </div>
   <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
   <script type="text/javascript" src="../assets/js/bui-min.js"></script>

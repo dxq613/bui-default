@@ -296,7 +296,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
     operatePage : function(moduleId,id,action,args){
 
       moduleId = moduleId || this._getCurrentModuleId();
-
+      args = args || [];
       var _self = this,
         module = _self._getModule(moduleId);
       if(module){
