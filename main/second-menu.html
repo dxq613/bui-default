@@ -38,6 +38,7 @@
           <ol>
             <li>text:文本</li>
             <li>collapsed：是否收缩，默认false</li>
+            <li>closeable: 是否可以关闭标签，默认true，如果设置成首页，可以将此属性设为false</li>
             <li>items：三级菜单集合</li>
           </ol>
           <p>三级菜单的配置项</p>
@@ -59,7 +60,7 @@ var config = [{   //模块菜单
   menu:[{         //二级菜单
       text:'首页内容',
       items:[   //三级菜单
-        {id:'code',text:'首页代码',href:'main/code.html'},
+        {id:'code',text:'首页代码',href:'main/code.html',closeable : false}, //设置不能关闭标签
         {id:'c',text:'标签页',href:'test.html'},
         {id:'d',text:'窗口变化',href:'test.html'},
         {id:'e',text:'首页资源文件',href:'test.html'},

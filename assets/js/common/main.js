@@ -50,7 +50,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
     menu.on('menuclick',function(ev){
       var item = ev.item;
       if(item){
-        _self.tab.addTab({id: item.get('id'), title: item.get('text'), href: item.get('href')},true);
+        _self.tab.addTab({id: item.get('id'), title: item.get('text'), href: item.get('href'),closeable : item.get('closeable')},true);
       }
       
     });
@@ -255,6 +255,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
         title = pageInfo.title || '新的标签页',
         href = pageInfo.href,
         isClose = pageInfo.isClose,
+        closeable = pageInfo.closeable,
         reload = pageInfo.reload,
         search = pageInfo.search;
 
@@ -272,7 +273,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
         if(menuItem){
           _self._setPageSelected(moduleIndex,id,reload,search);
         }else{
-          tab.addTab({id: id, title: title, href: href, sourceId: sourceId},reload);
+          tab.addTab({id: id, title: title, href: href, sourceId: sourceId,closeable: closeable},reload);
         }
         
         if(isClose){
@@ -656,7 +657,7 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
         if(item && item.get('id') === pageId){
           href = item.get('href');
           href = search ? (addSearch(href,search)) : href;
-          module.tab.addTab({id: item.get('id'), title: item.get('text'), href: href},!!isReload);
+          module.tab.addTab({id: item.get('id'), title: item.get('text'),closeable : item.get('closeable'), href: href},!!isReload);
 
         }else if(pageId){
 
