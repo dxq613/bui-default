@@ -1,7 +1,7 @@
   <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
   <script type="text/javascript" src="../assets/js/bui-min.js"></script>
 
-  <script type="text/javascript" src="../assets/js/config.js"></script>
+  <script type="text/javascript" src="../assets/js/config-min.js"></script>
   <script type="text/javascript">
     BUI.use('common/page');
   </script>

@@ -5,7 +5,7 @@
    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
    <link href="assets/css/dpl-min.css" rel="stylesheet" type="text/css" />
   <link href="assets/css/bui-min.css" rel="stylesheet" type="text/css" />
-   <link href="assets/css/main.css" rel="stylesheet" type="text/css" />
+   <link href="assets/css/main-min.css" rel="stylesheet" type="text/css" />
  </head>
  <body>
 
@@ -36,14 +36,14 @@
    </div>
   <script type="text/javascript" src="assets/js/jquery-1.8.1.min.js"></script>
   <script type="text/javascript" src="assets/js/bui-min.js"></script>
-  <script type="text/javascript" src="./assets/js/config.js"></script>
+  <script type="text/javascript" src="./assets/js/config-min.js"></script>
   <script>
     BUI.use('common/main',function(){
       var config = [{
-          id:'menu',
+          id:'menu', 
+          homePage : 'code',
           menu:[{
               text:'首页内容',
-              homePage : 'code',
               items:[
                 {id:'code',text:'首页代码',href:'main/code.html',closeable : false},
                 {id:'main-menu',text:'顶部导航',href:'main/menu.html'},
@@ -103,6 +103,11 @@
                   {id:'example-dialog',text:'搜索页面编辑示例',href:'search/example-dialog.html'},
                   {id:'introduce',text:'搜索页面简介',href:'search/introduce.html'}, 
                   {id:'config',text:'搜索配置',href:'search/config.html'}
+                ]
+              },{
+                text : '更多示例',
+                items : [
+                  {id : 'tab',text : '使用tab过滤',href : 'search/tab.html'}
                 ]
               }]
           },{
