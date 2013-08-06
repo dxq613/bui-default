@@ -38,9 +38,6 @@ $(function () {
         top.topManager.operatePage(params.moduleId,params.id,params.type);
       }
     });
-    if(0){
-      alert('你好么');
-    }
   }
   
 });
