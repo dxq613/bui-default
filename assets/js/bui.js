@@ -1553,18 +1553,22 @@ define('bui/common',['bui/ua','bui/json','bui/date','bui/array','bui/keycode','b
   return BUI;
 });
 /**
- * @class BUI
- * \u63a7\u4ef6\u5e93\u7684\u57fa\u7840\u547d\u540d\u7a7a\u95f4
+ * @class BUI.Util
+ * \u63a7\u4ef6\u5e93\u7684\u5de5\u5177\u65b9\u6cd5\uff0c\u8fd9\u4e9b\u5de5\u5177\u65b9\u6cd5\u76f4\u63a5\u7ed1\u5b9a\u5230BUI\u5bf9\u8c61\u4e0a
+ * <pre><code>
+ *     BUI.isString(str);
+ *
+ *     BUI.extend(A,B);
+ *
+ *     BUI.mix(A,{a:'a'});
+ * </code></pre>
  * @singleton
  */  
 var BUI = BUI || {};
 
 define('bui/util',function(){
   
-    /**
-     * \u517c\u5bb9 jquery 1.6
-     * @ignore
-     */
+    //\u517c\u5bb9jquery 1.6\u4ee5\u4e0b
     (function($){
       if($.fn){
         $.fn.on = $.fn.on || $.fn.bind;
@@ -1585,6 +1589,7 @@ define('bui/util',function(){
   {
     /**
      * \u7248\u672c\u53f7
+     * @memberOf BUI
      * @type {Number}
      */
     version:1.0,
@@ -1593,7 +1598,7 @@ define('bui/util',function(){
      * \u5b50\u7248\u672c\u53f7
      * @type {String}
      */
-    subVersion : 1,
+    subVersion : 2,
 
     /**
      * \u662f\u5426\u4e3a\u51fd\u6570
@@ -2074,7 +2079,14 @@ define('bui/util',function(){
         result = {};
       BUI.each(array,function(item){
         var name = item.name;
-        result[item.name] = item.value;
+        if(!result[name]){ //\u5982\u679c\u662f\u5355\u4e2a\u503c\uff0c\u76f4\u63a5\u8d4b\u503c
+          result[name] = item.value;  
+        }else{ //\u591a\u503c\u4f7f\u7528\u6570\u7ec4
+          if(!BUI.isArray(result[name])){
+            result[name] = [result[name]];
+          }
+          result[name].push(item.value);
+        }
       });
       return result;
     },
@@ -2083,7 +2095,7 @@ define('bui/util',function(){
      * @param {HTMLElement} form \u8868\u5355
      * @param {Object} obj  \u952e\u503c\u5bf9
      */
-    setValues : function(form,obj){
+    setFields : function(form,obj){
       for(var name in obj){
         if(obj.hasOwnProperty(name)){
           BUI.FormHelper.setField(form,name,obj[name]);
@@ -2146,6 +2158,12 @@ define('bui/util',function(){
 });/**
  * @fileOverview \u6570\u7ec4\u5e2e\u52a9\u7c7b
  * @ignore
+ */
+
+/**
+ * @class BUI
+ * \u63a7\u4ef6\u5e93\u7684\u57fa\u7840\u547d\u540d\u7a7a\u95f4
+ * @singleton
  */
 
 define('bui/array',['bui/util'],function (r) {
@@ -3884,7 +3902,7 @@ define('bui/base',['bui/observable'],function(require){
             delete _self.getAttrVals()[name];
         }
 
-        return self;
+        return _self;
     },
     /**
      * \u8bbe\u7f6e\u5c5e\u6027\u503c\uff0c\u4f1a\u89e6\u53d1before+Name+Change,\u548c after+Name+Change\u4e8b\u4ef6
@@ -3916,7 +3934,7 @@ define('bui/base',['bui/observable'],function(require){
                         setInternal(_self, name, all[name], opts);
                     }
                 }
-                return self;
+                return _self;
             }
             return setInternal(_self, name, value, opts);
     },
@@ -4413,7 +4431,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
   /**
    * \u63a7\u4ef6\u5e93\u7684\u57fa\u7c7b\uff0c\u5305\u62ec\u63a7\u4ef6\u7684\u751f\u547d\u5468\u671f,\u4e0b\u9762\u662f\u57fa\u672c\u7684\u6269\u5c55\u7c7b
    * <p>
-   * <img src="../assets/img/class-mixins.jpg"/>
+   * <img src="https://dxq613.github.io/assets/img/class-mixins.jpg"/>
    * </p>
    * @class BUI.Component.UIBase
    * @extends BUI.Base
@@ -4665,10 +4683,21 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
      */
     destroy: function () {
         var _self = this;
+        /**
+         * @event beforeDestroy
+         * fired before UIBase 's destroy.
+         * @param e
+         */
+        _self.fire('beforeDestroy');
 
         actionPlugins(_self, _self.get('plugins'), 'destructor');
         destroyHierarchy(_self);
-        _self.fire('destroy');
+         /**
+         * @event afterDestroy
+         * fired before UIBase 's destroy.
+         * @param e
+         */
+        _self.fire('afterDestroy');
         _self.off();
         _self.clearAttrVals();
         _self.destroyed = true;
@@ -5007,7 +5036,7 @@ define('bui/component/uibase/align',['bui/ua'],function (require) {
 
     function getRegion(node) {
         var offset, w, h;
-        if (!$.isWindow(node[0])) {
+        if (node.length && !$.isWindow(node[0])) {
             offset = node.offset();
             w = node.outerWidth();
             h = node.outerHeight();
@@ -5397,7 +5426,7 @@ define('bui/component/uibase/autoshow',function () {
 
       //\u89e6\u53d1\u9690\u85cf
       function tiggerHide (ev){
-        var toElement = ev.toElement;
+        var toElement = ev.toElement || ev.relatedTarget;
         if(!toElement || !_self.containsElement(toElement)){ //mouseleave\u65f6\uff0c\u5982\u679c\u79fb\u52a8\u5230\u5f53\u524d\u63a7\u4ef6\u4e0a\uff0c\u53d6\u6d88\u6d88\u5931
           _self.hide();
         }
@@ -5570,7 +5599,7 @@ define('bui/component/uibase/autohide',function () {
      */
     handleMoveOuter : function (ev) {
       var _self = this,
-        target = ev.toElement;
+        target = ev.toElement || ev.relatedTarget;
       if(!_self.containsElement(target) && !isExcept(_self,target)){
         if(_self.fire('autohide') !== false){
           _self.hide();
@@ -5596,11 +5625,11 @@ define('bui/component/uibase/autohide',function () {
         trigger = _self.get('curTrigger'),
         autoHideType = _self.get('autoHideType');
       if(autoHideType === 'click'){
-        $(document).on('mousedown',wrapBehavior(this,'handleDocumentClick'));
+        $(document).on('mousedown',wrapBehavior(_self,'handleDocumentClick'));
       }else{
-        _self.get('el').on('mouseleave',wrapBehavior(this,'handleMoveOuter'));
+        _self.get('el').on('mouseleave',wrapBehavior(_self,'handleMoveOuter'));
         if(trigger){
-          $(trigger).on('mouseleave',wrapBehavior(this,'handleMoveOuter'))
+          $(trigger).on('mouseleave',wrapBehavior(_self,'handleMoveOuter'))
         }
       }
 
@@ -5611,11 +5640,11 @@ define('bui/component/uibase/autohide',function () {
         trigger = _self.get('curTrigger'),
         autoHideType = _self.get('autoHideType');
       if(autoHideType === 'click'){
-        $(document).off('mousedown',getWrapBehavior(this,'handleDocumentClick'));
+        $(document).off('mousedown',getWrapBehavior(_self,'handleDocumentClick'));
       }else{
-        _self.get('el').off('mouseleave',wrapBehavior(this,'handleMoveOuter'));
+        _self.get('el').off('mouseleave',getWrapBehavior(_self,'handleMoveOuter'));
         if(trigger){
-          $(trigger).off('mouseleave',wrapBehavior(this,'handleMoveOuter'))
+          $(trigger).off('mouseleave',getWrapBehavior(_self,'handleMoveOuter'))
         }
       }
     }
@@ -5752,6 +5781,27 @@ define('bui/component/uibase/close',function () {
       closeAction:{
         value:HIDE
       }
+
+      /**
+       * @event closing
+       * \u6b63\u5728\u5173\u95ed\uff0c\u53ef\u4ee5\u901a\u8fc7return false \u963b\u6b62\u5173\u95ed\u4e8b\u4ef6
+       * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
+       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy
+       */
+
+      /**
+       * @event closed
+       * \u5df2\u7ecf\u5173\u95ed
+       * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
+       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy
+       */
+      
+      /**
+       * @event closeclick
+       * \u89e6\u53d1\u70b9\u51fb\u5173\u95ed\u6309\u94ae\u7684\u4e8b\u4ef6,return false \u963b\u6b62\u5173\u95ed
+       * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
+       * @param {String} e.domTarget \u70b9\u51fb\u7684\u5173\u95ed\u6309\u94ae\u8282\u70b9
+       */
   };
 
   var actions = {
@@ -5765,14 +5815,27 @@ define('bui/component/uibase/close',function () {
           if (v && !self.__bindCloseEvent) {
               self.__bindCloseEvent = 1;
               self.get('closeBtn').on('click', function (ev) {
-                  self[actions[self.get('closeAction')] || HIDE]();
-                  ev.preventDefault();
+                if(self.fire('closeclick',{domTarget : ev.target}) !== false){
+                  self.close();
+                }
+                ev.preventDefault();
               });
           }
       },
       __destructor:function () {
           var btn = this.get('closeBtn');
           btn && btn.detach();
+      },
+      /**
+       * \u5173\u95ed\u5f39\u51fa\u6846\uff0c\u5982\u679ccloseAction = 'hide'\u90a3\u4e48\u5c31\u662f\u9690\u85cf\uff0c\u5982\u679c closeAction = 'destroy'\u90a3\u4e48\u5c31\u662f\u91ca\u653e
+       */
+      close : function(){
+        var self = this,
+          action = actions[self.get('closeAction') || HIDE];
+        if(self.fire('closing',{action : action}) !== false){
+          self[action]();
+          self.fire('closed',{action : action});
+        }
       }
   };
 
@@ -6392,8 +6455,12 @@ define('bui/component/uibase/mask',function (require) {
                 _maskExtShow = view._maskExtShow,
                 _maskExtHide = view._maskExtHide;
             if (self.get('mask')) {
-                self.on('show', _maskExtShow, view);
-                self.on('hide', _maskExtHide, view);
+                self.on('show',function(){
+                    view._maskExtShow();
+                });
+                self.on('hide',function(){
+                    view._maskExtHide();
+                });
             }
         }
     };
@@ -8442,6 +8509,22 @@ define('bui/component/uibase/list',['bui/component/uibase/selection'],function (
      */
     autoInitItems : {
       value : true
+    },
+    /**
+     * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+     * <pre>
+     *  {
+     *   property : 'children',
+     *   dataType : 'json'
+     * }
+     * </pre>
+     * @type {Object}
+     */
+    defaultLoaderCfg  : {
+      value : {
+        property : 'children',
+        dataType : 'json'
+      }
     }
   });
 
@@ -9531,6 +9614,432 @@ define('bui/component/view',['bui/component/manage','bui/component/uibase'],func
 
     return View;
 });/**
+ * @fileOverview \u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9
+ * @ignore
+ */
+
+define('bui/component/loader',['bui/util'],function (require) {
+  'use strict';
+  var BUI = require('bui/util'),
+    Base = require('bui/base'),
+    /**
+     * @class BUI.Component.Loader
+     * @extends BUI.Base
+     * ** \u63a7\u4ef6\u7684\u9ed8\u8ba4Loader\u5c5e\u6027\u662f\uff1a**
+     * <pre><code>
+     *   
+     *   defaultLoader : {
+     *     value : {
+     *       property : 'content',
+     *       autoLoad : true
+     *     }
+     *   }
+     * </code></pre>
+     * ** \u4e00\u822c\u7684\u63a7\u4ef6\u9ed8\u8ba4\u8bfb\u53d6html\uff0c\u4f5c\u4e3a\u63a7\u4ef6\u7684content\u503c **
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json'
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     *
+     * ** \u53ef\u4ee5\u4fee\u6539Loader\u7684\u9ed8\u8ba4\u5c5e\u6027\uff0c\u52a0\u8f7dchildren **
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/children.json',
+     *       property : 'children',
+     *       dataType : 'json'
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * \u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u7c7b\uff0c\u4e00\u822c\u4e0d\u8fdb\u884c\u5b9e\u4f8b\u5316
+     */
+    Loader = function(config){
+      Loader.superclass.constructor.call(this,config);
+      this._init();
+    };
+
+  Loader.ATTRS = {
+
+    /**
+     * \u52a0\u8f7d\u5185\u5bb9\u7684\u5730\u5740
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json'
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {String} url
+     */
+    url : {
+
+    },
+    /**
+     * \u5bf9\u5e94\u7684\u63a7\u4ef6\uff0c\u52a0\u8f7d\u5b8c\u6210\u540e\u8bbe\u7f6e\u5c5e\u6027\u5230\u5bf9\u5e94\u7684\u63a7\u4ef6
+     * @readOnly
+     * @type {BUI.Component.Controller}
+     */
+    target : {
+
+    },
+    /**
+     * @private
+     * \u662f\u5426load \u8fc7
+     */
+    hasLoad : {
+      value : false
+    },
+    /**
+     * \u662f\u5426\u81ea\u52a8\u52a0\u8f7d\u6570\u636e
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       autoLoad : false
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {Boolean} [autoLoad = true]
+     */
+    autoLoad : {
+
+    },
+    /**
+     * \u5ef6\u8fdf\u52a0\u8f7d
+     * 
+     *   - event : \u89e6\u53d1\u52a0\u8f7d\u7684\u4e8b\u4ef6
+     *   - repeat \uff1a\u662f\u5426\u91cd\u590d\u52a0\u8f7d
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       lazyLoad : {
+     *         event : 'show',
+     *         repeat : true
+     *       }
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {Object} [lazyLoad = null]
+     */
+    lazyLoad: {
+
+    },
+    /**
+     * \u52a0\u8f7d\u8fd4\u56de\u7684\u6570\u636e\u4f5c\u4e3a\u63a7\u4ef6\u7684\u90a3\u4e2a\u5c5e\u6027
+     * <pre><code>
+     *   var control = new BUI.List.SimpleList({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       dataType : 'json',
+     *       property : 'items'
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {String} property
+     */
+    property : {
+
+    },
+    /**
+     * \u683c\u5f0f\u5316\u8fd4\u56de\u7684\u6570\u636e
+     * @cfg {Function} renderer
+     */
+    renderer : {
+      value : function(value){
+        return value;
+      }
+    },
+    /**
+     * \u52a0\u8f7d\u6570\u636e\u65f6\u662f\u5426\u663e\u793a\u5c4f\u853d\u5c42\u548c\u52a0\u8f7d\u63d0\u793a {@link BUI.Mask.LoadMask}
+     * 
+     *  -  loadMask : true\u65f6\u4f7f\u7528loadMask \u9ed8\u8ba4\u7684\u914d\u7f6e\u4fe1\u606f
+     *  -  loadMask : {msg : '\u6b63\u5728\u52a0\u8f7d\uff0c\u8bf7\u7a0d\u540e\u3002\u3002'} LoadMask\u7684\u914d\u7f6e\u4fe1\u606f
+     *   <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       loadMask : true
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {Boolean|Object} [loadMask = false]
+     */
+    loadMask : {
+      value : false
+    },
+    /**
+     * ajax \u8bf7\u6c42\u8fd4\u56de\u6570\u636e\u7684\u7c7b\u578b
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       dataType : 'json',
+     *       property : 'items'
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {String} [dataType = 'text']
+     */
+    dataType : {
+      value : 'text'
+    },
+    /**
+     * Ajax\u8bf7\u6c42\u7684\u914d\u7f6e\u9879,\u4f1a\u8986\u76d6 url,dataType\u6570\u636e
+     * @cfg {Object} ajaxOptions
+     */
+    ajaxOptions : {
+      value : {
+        method : 'get',
+        cache : false
+      }
+    },
+    /**
+     * \u521d\u59cb\u5316\u7684\u8bf7\u6c42\u53c2\u6570
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       params : {
+     *         a : 'a',
+     *         b : 'b'
+     *       }
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {Object} params
+     * @default null
+     */
+    params : {
+
+    },
+    /**
+     * \u9644\u52a0\u53c2\u6570\uff0c\u6bcf\u6b21\u8bf7\u6c42\u90fd\u5e26\u7684\u53c2\u6570
+     * @cfg {Object} appendParams
+     */
+    appendParams : {
+
+    },
+    /**
+     * \u6700\u540e\u4e00\u6b21\u8bf7\u6c42\u7684\u53c2\u6570
+     * @readOnly
+     * @private
+     * @type {Object}
+     */
+    lastParams : {
+      value : {}
+    },
+    /**
+     * \u52a0\u8f7d\u6570\u636e\uff0c\u5e76\u6dfb\u52a0\u5c5e\u6027\u5230\u63a7\u4ef6\u540e\u7684\u56de\u8c03\u51fd\u6570
+     *   - data : \u52a0\u8f7d\u7684\u6570\u636e
+     *   - params : \u52a0\u8f7d\u7684\u53c2\u6570
+     * <pre><code>
+     *   var control = new BUI.Component.Controller({
+     *     render : '#c1',
+     *     loader : {
+     *       url : 'data/text.json',
+     *       callback : function(text){
+     *         var target = this.get('target');//control
+     *         //TO DO
+     *       }
+     *     }
+     *   });
+     *
+     *   control.render();
+     * </code></pre>
+     * @cfg {Function} callback
+     */
+    callback : {
+
+    },
+    /**
+     * \u5931\u8d25\u7684\u56de\u8c03\u51fd\u6570
+     *   - response : \u8fd4\u56de\u7684\u9519\u8bef\u5bf9\u8c61
+     *   - params : \u52a0\u8f7d\u7684\u53c2\u6570
+     * @cfg {Function} failure
+     */
+    failure : {
+
+    }
+
+  };
+
+  BUI.extend(Loader,Base);
+
+  BUI.augment(Loader,{
+    /**
+     * @protected
+     * \u662f\u5426\u662fLoader
+     * @type {Boolean}
+     */
+    isLoader : true,
+    //\u521d\u59cb\u5316
+    _init : function(){
+      var _self = this,
+        autoLoad = _self.get('autoLoad'),
+        params = _self.get('params');
+
+      _self._initMask();
+      if(autoLoad){
+        _self.load(params);
+      }else{
+        _self._initParams();
+        _self._initLazyLoad();
+      }
+    },
+    //\u521d\u59cb\u5316\u5ef6\u8fdf\u52a0\u8f7d
+    _initLazyLoad : function(){
+      var _self = this,
+        target = _self.get('target'),
+        lazyLoad= _self.get('lazyLoad');
+
+      if(target && lazyLoad && lazyLoad.event){
+        target.on(lazyLoad.event,function(){
+          if(!_self.get('hasLoad') || lazyLoad.repeat){
+            _self.load();
+          }
+        });
+      }
+    },
+    /**
+     * \u521d\u59cb\u5316mask
+     * @private
+     */
+    _initMask : function(){
+      var _self = this,
+        target = _self.get('target'),
+        loadMask = _self.get('loadMask');
+      if(target && loadMask){
+        BUI.use('bui/mask',function(Mask){
+          var cfg = $.isPlainObject(loadMask) ? loadMask : {};
+          loadMask = new Mask.LoadMask(BUI.mix({el : target.get('el')},cfg));
+          _self.set('loadMask',loadMask);
+        });
+      }
+    },
+    //\u521d\u59cb\u5316\u67e5\u8be2\u53c2\u6570
+    _initParams : function(){
+      var _self = this,
+        lastParams = _self.get('lastParams'),
+        params = _self.get('params');
+
+      //\u521d\u59cb\u5316 \u53c2\u6570
+      BUI.mix(lastParams,params);
+    },
+    /**
+     * \u52a0\u8f7d\u5185\u5bb9
+     * @param {Object} params \u52a0\u8f7d\u6570\u636e\u7684\u53c2\u6570
+     */
+    load : function(params){
+      var _self = this,
+        url = _self.get('url'),
+        ajaxOptions = _self.get('ajaxOptions'),
+        lastParams = _self.get('lastParams'),
+        appendParams = _self.get('appendParams');
+
+      BUI.mix(true,lastParams,appendParams,params);
+      params = BUI.cloneObject(lastParams);
+      //\u672a\u63d0\u4f9b\u52a0\u8f7d\u5730\u5740\uff0c\u963b\u6b62\u52a0\u8f7d
+      if(!url){
+        return;
+      }
+
+      _self.onBeforeLoad();
+      _self.set('hasLoad',true);
+      $.ajax(BUI.mix({
+        dataType : _self.get('dataType'),
+        data : params,
+        url : url,
+        success : function(data){
+          _self.onload(data,params);
+        },
+        error : function(jqXHR, textStatus, errorThrown){
+          _self.onException({
+            jqXHR : jqXHR, 
+            textStatus : textStatus, 
+            errorThrown : errorThrown
+          },params);
+        }
+      },ajaxOptions));
+    },
+    /**
+     * @private
+     * \u52a0\u8f7d\u524d
+     */
+    onBeforeLoad : function(){
+      var _self = this,
+        loadMask = _self.get('loadMask');
+      if(loadMask && loadMask.show){
+        loadMask.show();
+      }
+    },
+    /**
+     * @private
+     * \u52a0\u8f7d\u5b8c\u6bd5
+     */
+    onload : function(data,params){
+      var _self = this,
+        loadMask = _self.get('loadMask'),
+        property = _self.get('property'),
+        callback = _self.get('callback'),
+        renderer = _self.get('renderer'),
+        target = _self.get('target');
+      target.set(property,renderer.call(_self,data));
+
+      /**/
+      if(loadMask && loadMask.hide){
+        loadMask.hide();
+      }
+      if(callback){
+        callback.call(this,data,params);
+      }
+    },
+    /**
+     * @private
+     * \u52a0\u8f7d\u51fa\u9519
+     */
+    onException : function(response,params){
+      var _self = this,
+        failure = _self.get('failure');
+      if(failure){
+        failure.call(this,response,params);
+      }
+    }
+
+  });
+
+  return Loader;
+});/**
  * @fileOverview  \u63a7\u4ef6\u53ef\u4ee5\u5b9e\u4f8b\u5316\u7684\u57fa\u7c7b
  * @ignore
  * @author yiminghe@gmail.com
@@ -9544,11 +10053,12 @@ define('bui/component/view',['bui/component/manage','bui/component/uibase'],func
  */
 
 
-define('bui/component/controller',['bui/component/uibase','bui/component/manage','bui/component/view'],function(require){
-
+define('bui/component/controller',['bui/component/uibase','bui/component/manage','bui/component/view','bui/component/loader'],function(require){
+    'use strict';
     var UIBase = require('bui/component/uibase'),
         Manager = require('bui/component/manage'),
         View = require('bui/component/view'),
+        Loader = require('bui/component/loader'),
         wrapBehavior = BUI.wrapBehavior,
         getWrapBehavior = BUI.getWrapBehavior;
 
@@ -9747,7 +10257,7 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
             var self = this;
 
             if(!self.get('id')){
-                self.set('id',self.getNextUniqueId())
+                self.set('id',self.getNextUniqueId());
             }
             Manager.addComponent(self.get('id'),self);
             // initialize view
@@ -9771,13 +10281,13 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
          */
         createDom: function () {
             var self = this,
-                el,
+                //el,
                 view = self.get('view');
             view.create(undefined);
-            el = view.getKeyEventTarget();
-            if (!self.get('allowTextSelection')) {
+            //el = view.getKeyEventTarget();
+            /*if (!self.get('allowTextSelection')) {
                 //el.unselectable(undefined);
-            }
+            }*/
         },
 
         /**
@@ -9786,10 +10296,23 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
          *
          */
         renderUI: function () {
-            var self = this, i, children, child;
+            var self = this, 
+                loader = self.get('loader');
             self.get('view').render();
+            self._initChildren();
+            if(loader){
+                self.setInternal('loader',loader);
+            }
+            /**/
+
+        },
+        _initChildren : function(children){
+            var self = this, 
+                i, 
+                children, 
+                child;
             // then render my children
-            children = self.get('children').concat();
+            children = children || self.get('children').concat();
             self.get('children').length = 0;
             for (i = 0; i < children.length; i++) {
                 child = self.addChild(children[i]);
@@ -9975,6 +10498,13 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
                     self.set('xy',[-999,-999]);
                 }
             }
+        },
+        //\u8bbe\u7f6echildren\u65f6
+        _uiSetChildren : function(v){
+            var self = this,
+                children = BUI.cloneObject(v);
+            //self.removeChildren(true);
+            self._initChildren(children);
         },
         /**
          * \u4f7f\u63a7\u4ef6\u53ef\u7528
@@ -10202,7 +10732,7 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
          * @protected
          * @return {Number} \u9644\u52a0\u5bbd\u5ea6
          */
-        getAppendHeigtht : function(){
+        getAppendHeight : function(){
             var el = this.get('el');
             return el.outerHeight() - el.height();
         },
@@ -10469,7 +10999,7 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
                 i,
                 view,
                 children = self.get('children');
-            id = self.get(id);
+            id = self.get('id');
             for (i = 0; i < children.length; i++) {
                 children[i].destroy && children[i].destroy();
             }
@@ -10888,7 +11418,34 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
                 value: false,
                 view: 1
             },
-
+            /**
+             * \u4e00\u65e6\u4f7f\u7528loader\u7684\u9ed8\u8ba4\u914d\u7f6e
+             * @protected
+             * @type {Object}
+             */
+            defaultLoaderCfg : {
+                value : {
+                    property : 'content',
+                    autoLoad : true
+                }
+            },
+            /**
+             * \u63a7\u4ef6\u5185\u5bb9\u7684\u52a0\u8f7d\u5668
+             * @type {BUI.Component.Loader}
+             */
+            loader : {
+                getter : function(v){
+                    var _self = this,
+                        defaultCfg;
+                    if(v && !v.isLoader){
+                        v.target = _self;
+                        defaultCfg = _self.get('defaultLoaderCfg')
+                        v = new Loader(BUI.merge(defaultCfg,v));
+                        _self.setInternal('loader',v);
+                    }
+                    return v;
+                }
+            },
             /**
              * 1. Whether allow select this component's text.<br/>
              * 2. Whether not to lose last component's focus if click current one (set false).
@@ -10957,6 +11514,7 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
              * @type {BUI.Component.Controller[]}
              */
             children: {
+                sync : false,
                 value: []
             },
             /**
@@ -11506,7 +12064,7 @@ define('bui/data/proxy',['bui/data/sortable'],function(require) {
       var _self = this,
         arr = ['start','limit','pageIndex'];
 
-      $.each(arr,function(field){
+      BUI.each(arr,function(field){
         var fieldParam = _self.get(field+'Param');
         if(fieldParam !== field){
           params[fieldParam] = params[field];
@@ -13307,10 +13865,14 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
     _getPageParams : function(){
       var _self = this,
         sortInfo = _self.get('sortInfo'),
+        start = _self.get('start'),
+        limit = _self.get('pageSize'),
+        pageIndex = _self.get('pageIndex') || (limit ? start/limit : 0);
+
         params = {
-          start : _self.get('start'),
-          limit : _self.get('pageSize'),
-          pageIndex : _self.get('pageIndex') //\u4e00\u822c\u800c\u8a00\uff0cpageIndex = start/limit
+          start : start,
+          limit : limit,
+          pageIndex : pageIndex //\u4e00\u822c\u800c\u8a00\uff0cpageIndex = start/limit
         };
 
       if(_self.get('remoteSort')){
@@ -13754,6 +14316,23 @@ define('bui/overlay/dialog',['bui/overlay/overlay'],function (require) {
       dialog.superclass.show.call(this);
       _self.center();
     },
+    //\u7ed1\u5b9a\u4e8b\u4ef6
+    bindUI : function(){
+      var _self = this;
+      _self.on('closeclick',function(){
+        return _self.onCancel();
+      });
+    },
+    /**
+     * @protected
+     * \u53d6\u6d88
+     */
+    onCancel : function(){
+      var _self = this,
+        cancel = _self.get('cancel');
+      return cancel.call(this);
+    },
+    //\u8bbe\u7f6e\u6309\u94ae
     _uiSetButtons:function(buttons){
       var _self = this,
         footer = _self.get('footer');
@@ -13764,13 +14343,26 @@ define('bui/overlay/dialog',['bui/overlay/overlay'],function (require) {
       });
 
     },
+    //\u521b\u5efa\u6309\u94ae
     _createButton : function(conf,parent){
       var _self = this,
         temp = '<button class="'+conf.elCls+'">'+conf.text+'</button>',
         btn = $(temp).appendTo(parent);
       btn.on('click',function(){
-        conf.handler.call(_self);
+        conf.handler.call(_self,_self,this);
       });
+    },
+    destructor : function(){
+      var _self = this,
+        contentId = _self.get('contentId'),
+        body = _self.get('body'),
+        closeAction = _self.get('closeAction');
+      if(closeAction == 'destroy'){
+        _self.hide();
+        if(contentId){
+          body.children().appendTo('#'+contentId);
+        }
+      }
     }
   },{
 
@@ -13835,8 +14427,10 @@ define('bui/overlay/dialog',['bui/overlay/overlay'],function (require) {
           },{
             text:'\u53d6\u6d88',
             elCls : 'button button-primary',
-            handler : function(){
-              this.hide();
+            handler : function(dialog,btn){
+              if(this.onCancel() !== false){
+                this.close();
+              }
             }
           }
         ]
@@ -13854,6 +14448,15 @@ define('bui/overlay/dialog',['bui/overlay/overlay'],function (require) {
       */
       success : {
         value : function(){
+          this.close();
+        }
+      },
+      /**
+       * \u7528\u6237\u53d6\u6d88\u65f6\u8c03\u7528\uff0c\u5982\u679creturn false\u5219\u963b\u6b62\u7a97\u53e3\u5173\u95ed
+       * @cfg {Function} cancel
+       */
+      cancel : {
+        value : function(){
 
         }
       },
@@ -13864,6 +14467,32 @@ define('bui/overlay/dialog',['bui/overlay/overlay'],function (require) {
         valueFn : function(){
           return this.get('header');
         }
+      },
+
+      /**
+       * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+       * <pre>
+       *  {
+       *   property : 'bodyContent',
+       *   autoLoad : true
+       * }
+       * </pre>
+       * @type {Object}
+       */
+      defaultLoaderCfg  : {
+        valueFn :function(){
+          var _self = this;
+          return {
+            property : 'bodyContent',
+            autoLoad : false,
+            lazyLoad : {
+              event : 'show'
+            },
+            loadMask : {
+              el : _self.get('body')
+            }
+          }
+        } 
       },
       /**
        * \u5f39\u51fa\u6846\u6807\u9898
@@ -13940,9 +14569,9 @@ define('bui/overlay/message',['bui/overlay/dialog'],function (require) {
    *       },'error');
    *       
    *    //\u590d\u6742\u7684\u63d0\u793a\u4fe1\u606f
-   *    var msg = '<h2>\u4e0a\u4f20\u5931\u8d25\uff0c\u8bf7\u4e0a\u4f2010M\u4ee5\u5185\u7684\u6587\u4ef6</h2>'+
-   *       '<p class="auxiliary-text">\u5982\u8fde\u7eed\u4e0a\u4f20\u5931\u8d25\uff0c\u8bf7\u53ca\u65f6\u8054\u7cfb\u5ba2\u670d\u70ed\u7ebf\uff1a0511-23883767834</p>'+
-   *       '<p><a href="#">\u8fd4\u56delist\u9875\u9762</a> <a href="#">\u67e5\u770b\u8be6\u60c5</a></p>';
+   *    var msg = '&lt;h2&gt;\u4e0a\u4f20\u5931\u8d25\uff0c\u8bf7\u4e0a\u4f2010M\u4ee5\u5185\u7684\u6587\u4ef6&lt;/h2&gt;'+
+   *       '&lt;p class="auxiliary-text"&gt;\u5982\u8fde\u7eed\u4e0a\u4f20\u5931\u8d25\uff0c\u8bf7\u53ca\u65f6\u8054\u7cfb\u5ba2\u670d\u70ed\u7ebf\uff1a0511-23883767834&lt;/p&gt;'+
+   *       '&lt;p&gt;&lt;a href="#"&gt;\u8fd4\u56delist\u9875\u9762&lt;/a&gt; &lt;a href="#"&gt;\u67e5\u770b\u8be6\u60c5&lt;/a&gt;&lt;/p&gt;';
    *     BUI.Message.Alert(msg,'error');
    *    //\u786e\u8ba4\u4fe1\u606f
    *    BUI.Message.Confirm('\u786e\u8ba4\u8981\u66f4\u6539\u4e48\uff1f',function(){
@@ -14566,6 +15195,22 @@ define('bui/list/domlist',['bui/common'],function (require) {
     textGetter : {
 
     },
+    /**
+     * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+     * <pre>
+     *  {
+     *   property : 'items',
+     *   dataType : 'json'
+     * }
+     * </pre>
+     * @type {Object}
+     */
+    defaultLoaderCfg  : {
+      value : {
+        property : 'items',
+        dataType : 'json'
+      }
+    },
     events : {
       value : {
         /**
@@ -15044,6 +15689,9 @@ define('bui/list/domlist',['bui/common'],function (require) {
      * @return {Boolean} \u662f\u5426\u5177\u6709\u67d0\u79cd\u72b6\u6001
      */
     hasStatus : function(item,status,element){
+      if(!item){
+        return false;
+      }
       var _self = this;
       element = element || _self.findElement(item);
       return _self.get('view').hasStatus(status,element);
@@ -15065,14 +15713,20 @@ define('bui/list/domlist',['bui/common'],function (require) {
      */
     setItemStatus : function(item,status,value,element){
       var _self = this;
-      element = element || _self.findElement(item);
+      if(item){
+        element = element || _self.findElement(item);
+      }
+      
       if(!_self.isItemDisabled(item,element) || status === 'disabled'){ //\u7981\u7528\u540e\uff0c\u963b\u6b62\u6dfb\u52a0\u4efb\u4f55\u72b6\u6001\u53d8\u5316
-        if(status === 'disabled' && value){ //\u7981\u7528\uff0c\u540c\u65f6\u6e05\u7406\u5176\u4ed6\u72b6\u6001
-          _self.clearItemStatus(item);
+        if(item){
+          if(status === 'disabled' && value){ //\u7981\u7528\uff0c\u540c\u65f6\u6e05\u7406\u5176\u4ed6\u72b6\u6001
+            _self.clearItemStatus(item);
+          }
+          _self.setStatusValue(item,status,value);
+          _self.get('view').setItemStatusCls(status,element,value);
+          _self.fire('itemstatuschange',{item : item,status : status,value : value,element : element});
         }
-        _self.setStatusValue(item,status,value);
-        _self.get('view').setItemStatusCls(status,element,value);
-        _self.fire('itemstatuschange',{item : item,status : status,value : value,element : element});
+        
         if(status === 'selected'){ //\u5904\u7406\u9009\u4e2d
           _self.afterSelected(item,value,element);
         }
@@ -15140,13 +15794,25 @@ define('bui/list/keynav',function () {
      * @protected
      */
     setHighlighted : function(item,element){
+      if(this.hasStatus(item,'hover',element)){
+        return;
+      }
       var _self = this,
         highlightedStatus = _self.get('highlightedStatus'),
-        lightedItem = _self.getHighlighted();
+        lightedElement = _self._getHighLightedElement(),
+        lightedItem = lightedElement ? _self.getItemByElement(lightedElement) : null;
       if(lightedItem !== item){
-        this.setItemStatus(lightedItem,highlightedStatus,false);
+        if(lightedItem){
+          this.setItemStatus(lightedItem,highlightedStatus,false,lightedElement);
+        }
         this.setItemStatus(item,highlightedStatus,true,element);
       }
+    },
+    _getHighLightedElement : function(){
+      var _self = this,
+        highlightedStatus = _self.get('highlightedStatus'),
+        element = _self.get('view').getFirstElementByStatus(highlightedStatus);
+      return element;
     },
     /**
      * \u83b7\u53d6\u9ad8\u4eae\u7684\u9009\u9879
@@ -15977,6 +16643,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
       }
       /**
        * @event selectedchange
+       * \u9009\u4e2d\u503c\u6539\u53d8\u4e8b\u4ef6
        * @param {Object} e \u4e8b\u4ef6\u5bf9\u8c61
        * @param {String} text \u9009\u4e2d\u7684\u6587\u672c
        * @param {string} value \u9009\u4e2d\u7684\u503c
@@ -17791,7 +18458,7 @@ define('bui/form/plainfield',['bui/form/basefield'],function (require) {
 
   /**
    * \u8868\u5355\u6587\u672c\u57df\uff0c\u4e0d\u80fd\u7f16\u8f91
-   * @class BUI.Form.Field.PlainField
+   * @class BUI.Form.Field.Plain
    * @extends BUI.Form.Field
    */
   var PlainField = Field.extend({
@@ -17836,6 +18503,139 @@ define('bui/form/plainfield',['bui/form/basefield'],function (require) {
 
   return PlainField;
 });/**
+ * @fileOverview \u8868\u5355\u4e2d\u7684\u5217\u8868\uff0c\u6bcf\u4e2a\u5217\u8868\u540e\u6709\u4e2a\u9690\u85cf\u57df\u7528\u6765\u5b58\u50a8\u6570\u636e
+ * @ignore
+ */
+
+define('bui/form/listfield',['bui/common','bui/form/basefield','bui/list'],function (require) {
+  var BUI = require('bui/common'),
+    List = require('bui/list'),
+    Field = require('bui/form/basefield');
+
+  /**
+   * @class BUI.Form.Field.List
+   * \u8868\u5355\u4e2d\u7684\u5217\u8868
+   * @extends BUI.Form.Field
+   */
+  var List = Field.extend({
+
+    initializer : function(){
+      var _self = this;
+      //if(!_self.get('srcNode')){
+        _self._initList();
+      //}
+    },
+    _getList : function(){
+      var _self = this,
+        children = _self.get('children');
+      return children[0];
+    },
+    bindUI : function(){
+      var _self = this,
+        list = _self._getList();
+      if(list){
+        list.on('selectedchange',function(){
+          var value = _self._getListValue(list);
+          _self.set('value',value);
+        });
+      }
+    },
+    //\u83b7\u53d6\u5217\u8868\u503c
+    _getListValue : function(list){
+      var _self = this;
+      list = list || _self._getList();
+      return list.getSelectionValues().join(',');
+    },
+    /**
+     * \u8bbe\u7f6e\u5b57\u6bb5\u7684\u503c
+     * @protected
+     * @param {*} value \u5b57\u6bb5\u503c
+     */
+    setControlValue : function(value){
+      var _self = this,
+        innerControl = _self.getInnerControl(),
+        list = _self._getList();
+      innerControl.val(value);
+      if(_self._getListValue(list) !== value && list.getCount()){
+        if(list.get('multipleSelect')){
+          list.clearSelection();
+        }
+        list.setSelectionByField(value.split(','));
+      }
+    },
+    //\u540c\u6b65\u6570\u636e
+    syncUI : function(){
+       this.set('list',this._getList());
+    },
+    //\u521d\u59cb\u5316\u5217\u8868
+    _initList : function(){
+      var _self = this,
+        children = _self.get('children'),
+        list = _self.get('list') || {};
+      if(children[0]){
+        return;
+      }
+      if($.isPlainObject(list)){
+        list.xclass = list.xclass || 'simple-list';
+      }
+      children.push(list);
+    },
+    /**
+     * \u8bbe\u7f6e\u9009\u9879
+     * @param {Array} items \u9009\u9879\u8bb0\u5f55
+     */
+    setItems : function(items){
+      var _self = this,
+        value = _self.get('value'),
+        list = _self._getList();
+      list.set('items',items);
+      list.setSelectionByField(value.split(','));
+    },
+    //\u8bbe\u7f6e\u9009\u9879\u96c6\u5408
+    _uiSetItems : function(v){
+      if(v){
+        this.setItems(v);
+      }
+    }
+  },{
+    ATTRS : {
+      /**
+       * \u5185\u90e8\u8868\u5355\u5143\u7d20\u7684\u5bb9\u5668
+       * @type {String}
+       */
+      controlTpl : {
+        value : '<input type="hidden"/>'
+      },
+      /**
+       * \u9009\u9879
+       * @type {Array}
+       */
+      items : {
+        setter : function(v){
+          if($.isPlainObject(v)){
+            var rst = [];
+            BUI.each(v,function(v,k){
+              rst.push({value : k,text :v});
+            });
+            v = rst;
+          }
+          return v;
+        }
+      },
+      /**
+       * \u5217\u8868
+       * @type {BUI.List.SimpleList}
+       */
+      list : {
+
+      }
+    }
+  },{
+    xclass : 'form-field-list'
+  });
+
+  return List;
+});/**
  * @fileOverview \u8868\u5355\u57df\u7684\u5165\u53e3\u6587\u4ef6
  * @ignore
  */
@@ -17855,7 +18655,8 @@ define(BASE + 'field',['bui/common',BASE + 'textfield',BASE + 'datefield',BASE +
     Check : require(BASE + 'checkfield'),
     Radio : require(BASE + 'radiofield'),
     Checkbox : require(BASE + 'checkboxfield'),
-    Plain : require(BASE + 'plainfield')
+    Plain : require(BASE + 'plainfield'),
+    List : require(BASE + 'listfield')
   });
 
   return Field;
@@ -18580,6 +19381,9 @@ define('bui/form/fieldcontainer',['bui/common','bui/form/field','bui/form/groupv
             field.set('checked',false);
           }
         }else{
+          if(value == null){
+            value = '';
+          }
           field.set('value',value);
         }
       },
@@ -18695,6 +19499,22 @@ define('bui/form/fieldcontainer',['bui/common','bui/form/field','bui/form/groupv
         validators : {
           value : {
 
+          }
+        },
+        /**
+         * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+         * <pre>
+         *  {
+         *   property : 'children',
+         *   dataType : 'json'
+         * }
+         * </pre>
+         * @type {Object}
+         */
+        defaultLoaderCfg  : {
+          value : {
+            property : 'children',
+            dataType : 'json'
           }
         },
         disabled : {
@@ -23288,6 +24108,11 @@ define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require
       if(panel && _self.get('panelDestroyable')){
         $(panel).remove();
       }
+    },
+    _uiSetPanelContent : function(v){
+      var _self = this,
+        panel = _self.get('panel');
+      $(panel).html(v);
     }
   },{
     ATTRS : 
@@ -23304,6 +24129,43 @@ define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require
        */
       panel : {
 
+      },
+      /**
+       * panel\u7684\u5185\u5bb9
+       * @property {String}
+       */
+      panelContent : {
+
+      },
+      /**
+       * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+       * <pre>
+       *  {
+       *   property : 'panelContent',
+       *   lazyLoad : {
+       *       event : 'active'
+       *   },
+       *     loadMask : {
+       *       el : _self.get('panel')
+       *   }
+       * }
+       * </pre>
+       * @type {Object}
+       */
+      defaultLoaderCfg  : {
+        valueFn :function(){
+          var _self = this;
+          return {
+            property : 'panelContent',
+            autoLoad : false,
+            lazyLoad : {
+              event : 'afterSelectedChange'
+            },
+            loadMask : {
+              el : _self.get('panel')
+            }
+          }
+        } 
       },
       /**
        * \u79fb\u9664\u6807\u7b7e\u9879\u65f6\u662f\u5426\u79fb\u9664\u9762\u677f\uff0c\u9ed8\u8ba4\u4e3a false
@@ -26606,7 +27468,7 @@ define('bui/editor/mixin',function (require) {
     cancel : function(){
       this.fire('cancel');
       this.clearValue();
-      this.hide();
+      this.close();
     }
   };
 
@@ -26997,6 +27859,16 @@ define('bui/editor/dialog',['bui/overlay','bui/editor/mixin'],function (require)
       }else{
         this.accept();
       }
+    },
+    /**
+     * \u53d6\u6d88\u7f16\u8f91
+     */
+    cancel : function(){
+      if(this.onCancel()!== false){
+        this.fire('cancel');
+        this.clearValue();
+        this.close();
+      } 
     },
     /**
      * @protected
@@ -27821,6 +28693,7 @@ define('bui/grid/column',['bui/common'],function (require) {
                     view:true,
                     value:'&#160;'
                 },
+
                 /**
                  * \u5217\u7684\u5bbd\u5ea6,\u53ef\u4ee5\u4f7f\u6570\u5b57\u6216\u8005\u767e\u5206\u6bd4,\u4e0d\u8981\u4f7f\u7528 width : '100'\u6216\u8005width : '100px'
                  * <pre><code>
@@ -27828,7 +28701,6 @@ define('bui/grid/column',['bui/common'],function (require) {
                  *  
                  *  {title : '\u6587\u672c',width:'10%',dataIndex :'a',editor : {xtype : 'text'}}
                  * </code></pre>
-                 * @type {Number|String}
                  * @cfg {Number} [width = 80]
                  */
                 
@@ -27838,7 +28710,7 @@ define('bui/grid/column',['bui/common'],function (require) {
                  *  grid.findColumn(id).set('width',200);
                  * </code></pre>
                  * 
-                 * @type {Object}
+                 * @type {Number}
                  */
                 width:{
                     value:100
@@ -28739,7 +29611,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
       var _self = this,
         bodyEl = _self.get('bodyEl'),
         emptyDataTpl = _self.get('emptyDataTpl'),
-        emptyEl = _self.get(emptyEl);
+        emptyEl = _self.get('emptyEl');
       if(emptyEl){
         emptyEl.remove();
       }
@@ -28751,7 +29623,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
      */
     clearEmptyText : function(){
        var _self = this,
-        emptyEl = _self.get(emptyEl);
+        emptyEl = _self.get('emptyEl');
       if(emptyEl){
         emptyEl.remove();
       }
@@ -31267,6 +32139,11 @@ define('bui/grid/plugins/editing',function (require) {
       var _self = this;
       _self.set('grid',grid);
       _self.initEditing(grid);
+      
+    },
+    renderUI : function(){
+      var _self = this,
+        grid = _self.get('grid');
       //\u5ef6\u8fdf\u52a0\u8f7d editor\u6a21\u5757
       BUI.use('bui/editor',function(Editor){
         _self.initEditors(Editor);
@@ -31414,6 +32291,7 @@ define('bui/grid/plugins/editing',function (require) {
     },
     /**
      * @protected
+     * \u83b7\u53d6\u7f16\u8f91\u5668\u7684\u914d\u7f6e
      * @template
      * @param  {Array} fields \u5b57\u6bb5\u914d\u7f6e
      * @return {Array} \u7f16\u8f91\u5668\u7684\u914d\u7f6e\u9879
@@ -33586,8 +34464,432 @@ define('bui/tree/treelist',['bui/common','bui/list','bui/tree/treemixin'],functi
   return TreeList;
 });
 
-BUI.use(['bui/common','bui/data','bui/list','bui/picker',
+/**
+ * @fileOverview \u63d0\u793a\u7684\u5165\u53e3\u6587\u4ef6
+ * @ignore
+ */
+
+define('bui/tooltip',['bui/common','bui/tooltip/tip','bui/tooltip/tips'],function (require) {
+  var BUI = require('bui/common'),
+    Tooltip = BUI.namespace('Tooltip'),
+    Tip = require('bui/tooltip/tip'),
+    Tips = require('bui/tooltip/tips');
+
+  BUI.mix(Tooltip,{
+    Tip : Tip,
+    Tips : Tips
+  });
+  return Tooltip;
+});/**
+ * @fileOverview \u7b80\u5355\u6613\u7528\u7684\u63d0\u793a\u4fe1\u606f
+ * @ignore
+ */
+
+define('bui/tooltip/tip',['bui/common','bui/overlay'],function (require) {
+  var BUI = require('bui/common'),
+    Overlay = require('bui/overlay'),
+    CLS_ALIGN_PREFIX = 'x-align-',
+    MAP_TYPES = {
+      left : ['cl','cr'], //\u5c45\u5de6
+      right : ['cr','cl'], //\u5c45\u53f3
+      top : ['tc','bc'], //\u5c45\u4e0a
+      bottom : ['bc','tc'], //\u5c45\u4e0b
+      'top-left' : ['tl','bl'],
+      'top-right' : ['tr','br'],
+      'bottom-left' : ['bl','tl'],
+      'bottom-right' : ['br','tr']
+    };
+  //\u83b7\u53d6\u8ddd\u79bb
+  function getOffset(type,offset){
+    if(type === 'left'){
+      return [-1 * offset,-4];
+    }
+    if(type === 'right'){
+      return [offset,-4];
+    }
+    if(type.indexOf('top')){
+      return [0,offset];
+    }
+
+    if(type.indexOf('bottom')){
+      return [0,-1 * offset];
+    }
+  }
+
+  var TipView = Overlay.OverlayView.extend({
+    renderUI : function(){
+
+    },
+    //\u83b7\u53d6\u663e\u793a\u6587\u672c\u7684\u5bb9\u5668
+    _getTitleContainer : function(){
+      return  this.get('el');
+    },
+    //\u8bbe\u7f6e\u6587\u672c
+    _uiSetTitle : function(title){
+      var _self = this,
+        titleTpl = _self.get('titleTpl'),
+        container = _self._getTitleContainer(),
+        titleEl = _self.get('titleEl'),
+        tem;
+      if(titleEl){
+        titleEl.remove();
+      }
+      title = title || '';
+      if(BUI.isString(title)){
+        title = {title : title};
+      }
+      tem = BUI.substitute(titleTpl,title);
+      titleEl = $(tem).appendTo(container);
+      _self.set('titleEl',titleEl);
+    },
+    //\u8bbe\u7f6e\u5bf9\u9f50\u6837\u5f0f
+    _uiSetAlignType : function(type,ev){
+      var _self = this;
+      if(ev && ev.prevVal){
+        _self.get('el').removeClass(CLS_ALIGN_PREFIX + ev.prevVal);
+      }
+      if(type){
+        _self.get('el').addClass(CLS_ALIGN_PREFIX + type);
+      }
+    }
+  },{
+    ATTRS : {
+      title : {},
+      titleEl : {},
+      alignType : {}
+    }
+  },{
+    xclass : 'tooltip-view'
+  });
+  
+  /**
+   * @class BUI.Tooltip.Tip
+   * @extends BUI.Overlay.Overlay
+   * \u7b80\u6613\u7684\u63d0\u793a\u4fe1\u606f
+   * 
+   * ** \u4f60\u53ef\u4ee5\u7b80\u5355\u7684\u4f7f\u7528\u5355\u4e2atip **
+   * <pre><code>
+   * BUI.use('bui/tooltip',function (Tooltip) {
+   *  //\u4e0d\u4f7f\u7528\u6a21\u677f\u7684\uff0c\u5de6\u4fa7\u663e\u793a
+   *   var t1 = new Tooltip.Tip({
+   *     trigger : '#t1',
+   *     alignType : 'left', //\u65b9\u5411
+   *     showArrow : false, //\u4e0d\u663e\u793a\u7bad\u5934
+   *     offset : 5, //\u8ddd\u79bb\u5de6\u8fb9\u7684\u8ddd\u79bb
+   *     title : '\u65e0\u4efb\u4f55\u6837\u5f0f\uff0c<br>\u5de6\u8fb9\u7684\u63d0\u793a\u4fe1\u606f'
+   *   });
+   *   t1.render();
+   *  });
+   * </code></pre>
+   *
+   * ** \u4e5f\u53ef\u4ee5\u914d\u7f6e\u6a21\u677f **
+   * <pre><code>
+   * BUI.use('bui/tooltip',function (Tooltip) {
+   *  //\u4f7f\u7528\u6a21\u677f\u7684\uff0c\u5de6\u4fa7\u663e\u793a
+   *   var t1 = new Tooltip.Tip({
+   *     trigger : '#t1',
+   *     alignType : 'left', //\u65b9\u5411
+   *     titleTpl : '&lt;span class="x-icon x-icon-small x-icon-success"&gt;&lt;i class="icon icon-white icon-question"&gt;&lt;/i&gt;&lt;/span&gt;\
+   *     &lt;div class="tips-content"&gt;{title}&lt;/div&gt;',
+   *     offset : 5, //\u8ddd\u79bb\u5de6\u8fb9\u7684\u8ddd\u79bb
+   *     title : '\u65e0\u4efb\u4f55\u6837\u5f0f\uff0c&lt;br&gt;\u5de6\u8fb9\u7684\u63d0\u793a\u4fe1\u606f'
+   *   });
+   *   t1.render();
+   *  });
+   * </code></pre>
+   */
+  var Tip = Overlay.Overlay.extend({
+    //\u8bbe\u7f6e\u5bf9\u9f50\u65b9\u5f0f
+    _uiSetAlignType : function(type){
+      var _self = this,
+        offset = _self.get('offset'),
+        align = _self.get('align') || {},
+        points = MAP_TYPES[type];
+      if(points){
+        align.points = points;
+        if(offset){
+          align.offset = getOffset(type,offset);
+        }
+        _self.set('align',align);
+      }
+    }
+  },{
+    ATTRS : {
+      //\u4f7f\u7528\u59d4\u6258\u7684\u65b9\u5f0f\u663e\u793a\u63d0\u793a\u4fe1\u606f
+      delegateTigger : {
+        value : true
+      },
+      /**
+       * \u5bf9\u9f50\u7c7b\u578b\uff0c\u5305\u62ec\uff1a top,left,right,bottom\u56db\u79cd\u5e38\u7528\u65b9\u5f0f\uff0c\u5176\u4ed6\u5bf9\u9f50\u65b9\u5f0f\uff0c\u53ef\u4ee5\u4f7f\u7528@see{BUI.Tooltip.Tip#property-align}\u5c5e\u6027
+       * 
+       * @type {String}
+       */
+      alignType : {
+        view : true
+      },
+      /**
+       * \u663e\u793a\u7684\u5185\u5bb9\uff0c\u6587\u672c\u6216\u8005\u952e\u503c\u5bf9
+       * <pre><code>
+       *     var tip =  new Tip({
+       *        title : {a : 'text a',b:'text b'}, //\u5c5e\u6027\u662f\u5bf9\u8c61
+       *        titleTpl : '<p>this is {a},because {b}</p>' // <p>this is text a,because text b</p>
+       *      });
+       * </code></pre>
+       * @cfg {String|Object} title
+       */
+      /**
+       * \u663e\u793a\u7684\u5185\u5bb9
+       * <pre><code>
+       *  //\u8bbe\u7f6e\u6587\u672c
+       *  tip.set('title','new title');
+       *
+       *  //\u8bbe\u7f6e\u5bf9\u8c61
+       *  tip.set('title',{a : 'a',b : 'b'})
+       * </code></pre>
+       * @type {Object}
+       */
+      title : {
+        view : true
+      },
+      /**
+       * \u663e\u793a\u5bf9\u9f50\u7bad\u5934
+       * @override
+       * @default true
+       * @cfg {Boolean} [showArrow = true]
+       */
+      showArrow : {
+        value : true
+      },
+      /**
+       * \u7bad\u5934\u653e\u7f6e\u5728\u7684\u4f4d\u7f6e\uff0c\u662f\u4e00\u4e2a\u9009\u62e9\u5668\uff0c\u4f8b\u5982 .arrow-wraper
+       * <pre><code>
+       *     new Tip({ //\u53ef\u4ee5\u8bbe\u7f6e\u6574\u4e2a\u63a7\u4ef6\u7684\u6a21\u677f
+       *       arrowContainer : '.arrow-wraper',
+       *       tpl : '<div class="arrow-wraper"></div>'
+       *     });
+       *     
+       *     new Tip({ //\u4e5f\u53ef\u4ee5\u8bbe\u7f6etitle\u7684\u6a21\u677f
+       *       arrowContainer : '.arrow-wraper',
+       *       titleTpl : '<div class="arrow-wraper">{title}</div>'
+       *     });
+       * </code></pre>   
+       * @cfg {String} arrowContainer
+       */
+      arrowContainer : {
+        view : true
+      },
+      //\u81ea\u52a8\u663e\u793a
+      autoHide : {
+        value : true
+      },
+      //\u8986\u76d6\u81ea\u52a8\u9690\u85cf\u7c7b\u578b
+      autoHideType : {
+        value : 'leave'
+      },
+      /**
+      * \u663e\u793a\u7684tip \u8ddd\u79bb\u89e6\u53d1\u5668Dom\u7684\u8ddd\u79bb
+      * <pre><code>
+      *  var tip =  new Tip({
+      *    title : {a : 'text a',b:'text b'}, //\u5c5e\u6027\u662f\u5bf9\u8c61
+      *    offset : 10, //\u8ddd\u79bb
+      *    titleTpl : '<p>this is {a},because {b}</p>' // <p>this is text a,because text b</p>
+      *  });
+      * </code></pre>
+      * @cfg {Number} offset
+      */
+      offset : {
+        value : 0
+      },
+      /**
+       * \u89e6\u53d1\u663e\u793atip\u7684\u4e8b\u4ef6\u540d\u79f0\uff0c\u9ed8\u8ba4\u4e3amouseover
+       * @type {String}
+       * @protected
+       */
+      triggerEvent : {
+        value : 'mouseover'
+      },
+      /**
+       * \u663e\u793a\u6587\u672c\u7684\u6a21\u677f
+       * <pre><code>
+       *  var tip =  new Tip({
+       *    title : {a : 'text a',b:'text b'}, //\u5c5e\u6027\u662f\u5bf9\u8c61
+       *    offset : 10, //\u8ddd\u79bb
+       *    titleTpl : '<p>this is {a},because {b}</p>' // <p>this is text a,because text b</p>
+       *  });
+       * </code></pre>
+       * @type {String}
+       */
+      titleTpl : {
+        view : true,
+        value : '<span>{title}</span>'
+      },
+      xview : {
+        value : TipView
+      }
+    }
+  },{
+    xclass : 'tooltip'
+  });
+
+  Tip.View = TipView;
+
+  return Tip;
+});/**
+ * @fileOverview \u6279\u91cf\u663e\u793a\u63d0\u793a\u4fe1\u606f
+ * @ignore
+ */
+
+define('bui/tooltip/tips',['bui/common','bui/tooltip/tip'],function(require) {
+
+  //\u662f\u5426json\u5bf9\u8c61\u6784\u6210\u7684\u5b57\u7b26\u4e32
+  function isObjectString(str){
+    return /^{.*}$/.test(str);
+  }
+
+  var BUI = require('bui/common'),
+    Tip = require('bui/tooltip/tip'),
+    /**
+     * @class BUI.Tooltip.Tips
+     * \u6279\u91cf\u663e\u793a\u63d0\u793a\u4fe1\u606f
+     *  <pre><code>
+     * BUI.use('bui/tooltip',function(){
+     *   var tips = new Tooltip.Tips({
+     *     tip : {
+     *       trigger : '#t1 a', //\u51fa\u73b0\u6b64\u6837\u5f0f\u7684\u5143\u7d20\u663e\u793atip
+     *       alignType : 'top', //\u9ed8\u8ba4\u65b9\u5411
+     *       elCls : 'tips tips-no-icon tip1',
+     *       titleTpl : '&lt;span class="x-icon x-icon-small x-icon-success"&gt;&lt;i class="icon icon-white icon-question"&gt;&lt;/i&gt;&lt;/span&gt;\
+   *           &lt;div class="tips-content"&gt;{title}&lt;/div&gt;',
+     *       offset : 10 //\u8ddd\u79bb\u5de6\u8fb9\u7684\u8ddd\u79bb
+     *     }
+     *   });
+     *   tips.render();
+     * })
+     * 
+     * </code></pre>
+     */
+    Tips = function(config){
+      Tips.superclass.constructor.call(this,config);
+    };
+
+  Tips.ATTRS = {
+
+    /**
+     * \u4f7f\u7528\u7684\u63d0\u793a\u63a7\u4ef6\u6216\u8005\u914d\u7f6e\u4fe1\u606f @see {BUI.Tooltip.Tip}
+     * <pre><code>
+     *    //\u4e0d\u4f7f\u7528\u6a21\u677f\u7684\uff0c\u5de6\u4fa7\u663e\u793a
+     * var tips = new Tooltip.Tips({
+     *   tip : {
+     *     trigger : '#t1 a', //\u51fa\u73b0\u6b64\u6837\u5f0f\u7684\u5143\u7d20\u663e\u793atip
+     *     alignType : 'top', //\u9ed8\u8ba4\u65b9\u5411
+     *     elCls : 'tips tips-no-icon tip1',
+     *     offset : 10 //\u8ddd\u79bb\u5de6\u8fb9\u7684\u8ddd\u79bb
+     *   }
+     * });
+     * tips.render();
+     * </code></pre>
+     * @cfg {BUI.Tooltip.Tip|Object} tip
+     */
+    /**
+     * \u4f7f\u7528\u7684\u63d0\u793a\u63a7\u4ef6 @see {BUI.Tooltip.Tip}
+     * <pre><code>
+     *    var tip = tips.get('tip');
+     * </code></pre>
+     * @type {BUI.Tooltip.Tip}
+     * @readOnly
+     */
+    tip : {
+
+    },
+    /**
+     * \u9ed8\u8ba4\u7684\u5bf9\u9f50\u65b9\u5f0f,\u5982\u679c\u4e0d\u6307\u5b9atip\u7684\u5bf9\u9f50\u65b9\u5f0f\uff0c\u90a3\u4e48\u4f7f\u7528\u6b64\u5c5e\u6027
+     * <pre><code>
+     * //\u4e0d\u4f7f\u7528\u6a21\u677f\u7684\uff0c\u5de6\u4fa7\u663e\u793a
+     * var tips = new Tooltip.Tips({
+     *   tip : {
+     *     trigger : '#t1 a', //\u51fa\u73b0\u6b64\u6837\u5f0f\u7684\u5143\u7d20\u663e\u793atip
+     *     defaultAlignType : 'top', //\u9ed8\u8ba4\u65b9\u5411
+     *     elCls : 'tips tips-no-icon tip1',
+     *     offset : 10 //\u8ddd\u79bb\u5de6\u8fb9\u7684\u8ddd\u79bb
+     *   }
+     * });
+     * tips.render();
+     * </code></pre>
+     * @cfg {Object} defaultAlignType
+     */
+    defaultAlignType : {
+
+    }
+  };
+
+  BUI.extend(Tips,BUI.Base);
+
+  BUI.augment(Tips,{
+    //\u521d\u59cb\u5316
+    _init : function(){
+      this._initDom();
+      this._initEvent();
+    },
+    //\u521d\u59cb\u5316DOM
+    _initDom : function(){
+      var _self = this,
+        tip = _self.get('tip'),
+        defaultAlignType;
+      if(tip && !tip.isController){
+        defaultAlignType = tip.alignType; //\u8bbe\u7f6e\u9ed8\u8ba4\u7684\u5bf9\u9f50\u65b9\u5f0f
+        tip = new Tip(tip);
+        tip.render();
+        _self.set('tip',tip);
+        if(defaultAlignType){
+          _self.set('defaultAlignType',defaultAlignType);
+        }
+      }
+    },
+    //\u521d\u59cb\u5316\u4e8b\u4ef6
+    _initEvent : function(){
+      var _self = this,
+        tip = _self.get('tip');
+      tip.on('triggerchange',function(ev){
+        var curTrigger = ev.curTrigger;
+        _self._replaceTitle(curTrigger);
+        _self._setTitle(curTrigger,tip);
+      });
+    },
+    //\u66ff\u6362\u6389title
+    _replaceTitle : function(triggerEl){
+      var title = triggerEl.attr('title');
+      if(title){
+        triggerEl.attr('data-title',title);
+        triggerEl[0].removeAttribute('title');
+      }
+    },
+    //\u8bbe\u7f6etitle
+    _setTitle : function(triggerEl,tip){
+      var _self = this,
+        title = triggerEl.attr('data-title'),
+        alignType = triggerEl.attr('data-align') || _self.get('defaultAlignType');
+
+      if(isObjectString(title)){
+        title = BUI.JSON.looseParse(title);
+      }
+      tip.set('title',title);
+      if(alignType){
+        tip.set('alignType',alignType);
+      }
+    },
+    /**
+     * \u6e32\u67d3\u63d0\u793a\u4fe1\u606f
+     * @chainable
+     */
+    render : function(){
+      this._init();
+      return this;
+    }
+  });
+
+  return Tips;
+});BUI.use(['bui/common','bui/data','bui/list','bui/picker',
   'bui/menu','bui/toolbar','bui/progressbar','bui/cookie',
   'bui/form','bui/mask','bui/select','bui/tab',
-  'bui/calendar','bui/overlay','bui/editor','bui/grid','bui/tree'
+  'bui/calendar','bui/overlay','bui/editor','bui/grid','bui/tree','bui/tooltip'
 ]);
