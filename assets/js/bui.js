@@ -1506,7 +1506,7 @@ seajs._config = {
 var loaderPath = seajs.pluginSDK.util.loaderDir;
 seajs.config({
   map : [
-    ['.js', '-min.js']
+    [/.js$/, '-min.js']
   ],
   alias : {
     'bui' : loaderPath
@@ -1531,7 +1531,7 @@ BUI.setDebug = function (debug) {
   }else{
     seajs.config({
       map : [
-        ['.js', '-min.js']
+        [/.js$/, '-min.js']
       ]
     });
   }
@@ -2126,28 +2126,31 @@ define('bui/util',function(){
     */
     setField:function(form,fieldName,value){
       var fields = form.elements[fieldName];
-      if(BUI.isArray(fields)){
+      if(BUI.isArray(fields) || (fields && fields.length)){
         BUI.each(fields,function(field){
-          if(field.type === 'checkbox'){
-            if(field.value === value || BUI.Array.indexOf(field.value,value) !== -1){
+          formHelper._setFieldValue(field,value);
+        });
+      }else{
+        formHelper._setFieldValue(fields,value);
+      }
+    },
+    //\u8bbe\u7f6e\u5b57\u6bb5\u7684\u503c
+    _setFieldValue : function(field,value){
+        if(field.type === 'checkbox'){
+            if(field.value == value ||(BUI.isArray(value) && BUI.Array.indexOf(field.value,value) !== -1)) {
               $(field).attr('checked',true);
             }else{
               $(field).attr('checked',false);  
             }
-          }else if(field.type === 'radio'){
-            if(field.value === value){
+        }else if(field.type === 'radio'){
+            if(field.value == value){
               $(field).attr('checked',true);
             }else{
               $(field).attr('checked',false); 
             }    
-          }else{
+        }else{
             $(field).val(value);
-          }
-        
-        });
-      }else{
-        $(fields).val(value);
-      }
+        }
     },
     /**
      * \u83b7\u53d6\u8868\u5355\u5b57\u6bb5\u503c
@@ -3291,9 +3294,9 @@ define('bui/date', function () {
         var year = now.getYear();
         var month = now.getMonth() + 1;
         var date = 1;
-        var hh = now.getHours();
-        var mm = now.getMinutes();
-        var ss = now.getSeconds();
+        var hh = 00;
+        var mm = 00;
+        var ss = 00;
         this.isInteger = function(val) {
             return /^\d*$/.test(val);
 		};
@@ -5425,6 +5428,13 @@ define('bui/component/uibase/autoshow',function () {
       value : true
     },
     /**
+     * \u663e\u793a\u65f6\u662f\u5426\u9ed8\u8ba4\u83b7\u53d6\u7126\u70b9
+     * @type {Boolean}
+     */
+    autoFocused : {
+      value : true
+    },
+    /**
      * \u63a7\u4ef6\u663e\u793a\u65f6\u7531\u6b64trigger\u89e6\u53d1\uff0c\u5f53\u914d\u7f6e\u9879 trigger \u9009\u62e9\u5668\u4ee3\u8868\u591a\u4e2aDOM \u5bf9\u8c61\u65f6\uff0c
      * \u63a7\u4ef6\u53ef\u7531\u591a\u4e2aDOM\u5bf9\u8c61\u89e6\u53d1\u663e\u793a\u3002
      * <pre><code>
@@ -5542,6 +5552,15 @@ define('bui/component/uibase/autoshow',function () {
         }
         _self.set('align',align);
         _self.show();
+        /*if(_self.get('autoFocused')){
+          try{ //\u5143\u7d20\u9690\u85cf\u7684\u65f6\u5019\uff0cie\u4e0b\u7ecf\u5e38\u4f1a\u62a5\u9519
+            _self.focus();
+          }catch(ev){
+            BUI.log(ev);
+          }
+        }*/
+        
+        
         triggerCallback && triggerCallback(ev);
       }
 
@@ -6266,7 +6285,12 @@ define('bui/component/uibase/keynav',['bui/keycode'],function (require) {
      */
     _handleKeyDown : function(ev){
       var _self = this,
+        ignoreInputFields = _self.get('ignoreInputFields'),
         code = ev.which;
+      if(ignoreInputFields && $(ev.target).is('input,select,textarea')){
+        return;
+      }
+      ev.preventDefault();
       switch(code){
         case KeyCode.UP :
           _self.handleNavUp(ev);
@@ -9951,7 +9975,7 @@ define('bui/component/loader',['bui/util'],function (require) {
      */
     ajaxOptions : {
       value : {
-        method : 'get',
+        type : 'get',
         cache : false
       }
     },
@@ -10659,6 +10683,14 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
         disable : function(){
             this.set('disabled',true);
             return this;
+        },
+        /**
+         * \u63a7\u4ef6\u83b7\u53d6\u7126\u70b9
+         */
+        focus : function(){
+            if(this.get('focusable')){
+                this.set('focused',true);
+            }
         },
         /**
          * \u5b50\u7ec4\u4ef6\u5c06\u8981\u6e32\u67d3\u5230\u7684\u8282\u70b9\uff0c\u5728 render \u7c7b\u4e0a\u8986\u76d6\u5bf9\u5e94\u65b9\u6cd5
@@ -12486,12 +12518,11 @@ define('bui/data/abstractstore',['bui/common','bui/data/proxy'],function (requir
 
         /**  
         * \u53d1\u751f\u5728\uff0cbeforeload\u548cload\u4e2d\u95f4\uff0c\u6570\u636e\u5df2\u7ecf\u83b7\u53d6\u5b8c\u6210\uff0c\u4f46\u662f\u8fd8\u672a\u89e6\u53d1load\u4e8b\u4ef6\uff0c\u7528\u4e8e\u83b7\u53d6\u8fd4\u56de\u7684\u539f\u59cb\u6570\u636e
-        * @name BUI.Data.Store#beforeProcessLoad
         * @event  
         * @param {jQuery.Event} e  \u4e8b\u4ef6\u5bf9\u8c61
         * @param {Object} e.data \u4ece\u670d\u52a1\u5668\u7aef\u8fd4\u56de\u7684\u6570\u636e
         */
-        'beforeProcessLoad',
+        'beforeprocessload',
         
         /**  
         * \u5f53\u6dfb\u52a0\u6570\u636e\u65f6\u89e6\u53d1\u8be5\u4e8b\u4ef6
@@ -12750,6 +12781,9 @@ define('bui/data/abstractstore',['bui/common','bui/data/proxy'],function (requir
     processLoad : function(data,params){
       var _self = this,
         hasErrorField = _self.get('hasErrorProperty');
+
+      _self.fire('beforeprocessload',{data : data});
+    
       //\u83b7\u53d6\u7684\u539f\u59cb\u6570\u636e
       _self.fire('beforeProcessLoad',data);
 
@@ -13005,7 +13039,7 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
      * \u8fd4\u56de\u6570\u636e\u6807\u793a\u6570\u636e\u7684\u5b57\u6bb5</br>
      * \u5f02\u6b65\u52a0\u8f7d\u6570\u636e\u65f6\uff0c\u8fd4\u56de\u6570\u636e\u53ef\u4ee5\u4f7f\u6570\u7ec4\u6216\u8005\u5bf9\u8c61
      * - \u5982\u679c\u8fd4\u56de\u7684\u662f\u5bf9\u8c61,\u53ef\u4ee5\u9644\u52a0\u5176\u4ed6\u4fe1\u606f,\u90a3\u4e48\u53d6\u5bf9\u8c61\u5bf9\u5e94\u7684\u5b57\u6bb5 {nodes : [],hasError:false}
-     * - \u5982\u4f55\u83b7\u53d6\u9644\u52a0\u4fe1\u606f\u53c2\u770b @see {BUI.Data.AbstractStore-event-beforeProcessLoad}
+     * - \u5982\u4f55\u83b7\u53d6\u9644\u52a0\u4fe1\u606f\u53c2\u770b @see {BUI.Data.AbstractStore-event-beforeprocessload}
      * <pre><code>
      *  //\u8fd4\u56de\u6570\u636e\u4e3a\u6570\u7ec4 [{},{}]\uff0c\u4f1a\u76f4\u63a5\u9644\u52a0\u5230\u52a0\u8f7d\u7684\u8282\u70b9\u540e\u9762
      *  
@@ -13402,6 +13436,7 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
       }else{
         _self.setChildren(node,data[dataProperty]);
       }
+      node.loaded = true; //\u6807\u8bc6\u5df2\u7ecf\u52a0\u8f7d\u8fc7
       _self.fire('load',{node : node,params : params});
     },
     /**
@@ -13426,29 +13461,33 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
         return true;
       }
       
-      return node.leaf || (node.children && node.children.length);
+      return node.loaded || node.leaf || (node.children && node.children.length);
     },
     /**
      * \u52a0\u8f7d\u8282\u70b9\u7684\u5b50\u8282\u70b9
      * @param  {BUI.Data.Node} node \u8282\u70b9
      */
     loadNode : function(node){
-      var _self = this;
+      var _self = this,
+        pidField = _self.get('pidField'),
+        params;
       //\u5982\u679c\u5df2\u7ecf\u52a0\u8f7d\u8fc7\uff0c\u6216\u8005\u8282\u70b9\u662f\u53f6\u5b50\u8282\u70b9
       if(_self.isLoaded(node)){
         return ;
       }
-      if(!_self.get('url') && _self.get('data')){ //\u5982\u679c\u4e0d\u4ece\u8fdc\u7a0b\u52a0\u8f7d\u6570\u636e\uff0c\u4e0d\u662f\u6839\u8282\u70b9\u7684\u8bdd\uff0c\u53d6\u6d88\u52a0\u8f7d
-        var pidField = _self.get('pidField'),
-          params = {id : node.id};
-        if(pidField){
-          params[pidField] = node.id;
-        }
+      params = {id : node.id};
+      if(pidField){
+        params[pidField] = node.id;
+      }
+      _self.load(params);
+
+      /*if(!_self.get('url') && _self.get('data')){ //\u5982\u679c\u4e0d\u4ece\u8fdc\u7a0b\u52a0\u8f7d\u6570\u636e\uff0c\u4e0d\u662f\u6839\u8282\u70b9\u7684\u8bdd\uff0c\u53d6\u6d88\u52a0\u8f7d
+        
         _self.load(params);
         return;
       }else{
         _self.load({id:node.id,path : ''});
-      }
+      }*/
       
     },
     /**
@@ -15821,6 +15860,9 @@ define('bui/list/domlist',['bui/common'],function (require) {
      */
     setItems : function(items){
       var _self = this;
+      if(items != _self.getItems()){
+        _self.setInternal('items',items);
+      }
       //\u6e05\u7406\u5b50\u63a7\u4ef6
       _self.clearControl();
       _self.fire('beforeitemsshow');
@@ -16267,6 +16309,7 @@ define('bui/list/keynav',function () {
      * @param  {jQuery.Event} ev \u4e8b\u4ef6\u5bf9\u8c61
      */
     handleNavUp : function (ev) {
+
       var _self = this,
         upperItem = _self._getUpperItem();
       _self.setHighlighted(upperItem);
@@ -16277,6 +16320,7 @@ define('bui/list/keynav',function () {
      * @param  {jQuery.Event} ev \u4e8b\u4ef6\u5bf9\u8c61
      */
     handleNavDown : function (ev) {
+      
       this.setHighlighted(this._getDownItem());
     },
     /**
@@ -16303,9 +16347,12 @@ define('bui/list/keynav',function () {
      */
     handleNavEnter : function (ev) {
       var _self = this,
-        current = _self._getCurrentItem();
+        current = _self._getCurrentItem(),
+        element;
       if(current){
-        _self.setSelected(current);
+        element = _self.findElement(current);
+        //_self.setSelected(current);
+        $(element).trigger('click');
       }
     },
     /**
@@ -16869,6 +16916,12 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
 
       },
       /**
+       * \u9009\u62e9\u5668\u83b7\u53d6\u7126\u70b9\u65f6\uff0c\u9ed8\u8ba4\u9009\u4e2d\u5185\u90e8\u63a7\u4ef6
+       */
+      focus : function(){
+        this.get('innerControl').focus();
+      },
+      /**
        * @protected
        * \u53d1\u751f\u6539\u53d8
        */
@@ -16876,6 +16929,14 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
         var _self = this,
           curTrigger = _self.get('curTrigger');
         _self.fire('selectedchange',{value : selValue,text : selText,curTrigger : curTrigger});
+      },
+      /**
+       * \u5904\u7406 esc \u952e
+       * @protected
+       * @param  {jQuery.Event} ev \u4e8b\u4ef6\u5bf9\u8c61
+       */
+      handleNavEsc : function (ev) {
+        this.hide();
       },
       _uiSetValueField : function(v){
         var _self = this;
@@ -17526,6 +17587,7 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
       var _self = this,
         validEvent = _self.get('validEvent'),
         changeEvent = _self.get('changeEvent'),
+        firstValidEvent = _self.get('firstValidEvent'),
         innerControl = _self.getInnerControl();
 
       //\u9009\u62e9\u6846\u53ea\u4f7f\u7528 select\u4e8b\u4ef6
@@ -17537,13 +17599,16 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
         var value = _self.getControlValue(innerControl);
         _self.validControl(value);
       });
-      //\u672a\u53d1\u751f\u9a8c\u8bc1\u65f6\uff0c\u9996\u6b21\u83b7\u53d6\u7126\u70b9\uff0c\u8fdb\u884c\u9a8c\u8bc1
-      innerControl.on('focus',function(){
-        if(!_self.get('hasValid')){
-          var value = _self.getControlValue(innerControl);
-          _self.validControl(value);
-        }
-      });
+      if(firstValidEvent){
+        //\u672a\u53d1\u751f\u9a8c\u8bc1\u65f6\uff0c\u9996\u6b21\u83b7\u53d6\u7126\u70b9/\u4e22\u5931\u7126\u70b9/\u70b9\u51fb\uff0c\u8fdb\u884c\u9a8c\u8bc1
+        innerControl.on(firstValidEvent,function(){
+          if(!_self.get('hasValid')){
+            var value = _self.getControlValue(innerControl);
+            _self.validControl(value);
+          }
+        });
+      }
+      
 
       //\u672c\u6765\u662f\u76d1\u542c\u63a7\u4ef6\u7684change\u4e8b\u4ef6\uff0c\u4f46\u662f\uff0c\u5982\u679c\u63a7\u4ef6\u8fd8\u672a\u89e6\u53d1change,\u4f46\u662f\u901a\u8fc7get('value')\u6765\u53d6\u503c\uff0c\u5219\u4f1a\u51fa\u73b0\u9519\u8bef\uff0c
       //\u6240\u4ee5\u5f53\u901a\u8fc7\u9a8c\u8bc1\u65f6\uff0c\u5373\u89e6\u53d1\u6539\u53d8\u4e8b\u4ef6
@@ -17620,7 +17685,7 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
     getRemoteParams : function  () {
       var _self = this,
         rst = {};
-      rst[_self.get('name')] = _self.get('value');
+      rst[_self.get('name')] = _self.getControlValue();
       return rst;
     },
     /**
@@ -17841,6 +17906,12 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
        */
       changeEvent : {
         value : 'valid'
+      },
+      /**
+       * \u672a\u53d1\u751f\u9a8c\u8bc1\u65f6\uff0c\u9996\u6b21\u83b7\u53d6/\u4e22\u5931\u7126\u70b9\uff0c\u8fdb\u884c\u9a8c\u8bc1
+       */
+      firstValidEvent : {
+        value : 'blur'
       },
       /**
        * \u8868\u5355\u5143\u7d20\u6216\u8005\u63a7\u4ef6\u89e6\u53d1\u6b64\u4e8b\u4ef6\u65f6\uff0c\u89e6\u53d1\u9a8c\u8bc1
@@ -19281,6 +19352,19 @@ define('bui/form/valid',['bui/common','bui/form/rules'],function (require) {
   };
 
   Valid.prototype = {
+
+    __bindUI : function(){
+      var _self = this;
+      //\u76d1\u542c\u662f\u5426\u7981\u7528
+      _self.on('afterDisabledChange',function(ev){
+        var disabled = ev.newVal;
+        if(disabled){
+          _self.clearErrors(false);
+        }else{
+          _self.valid();
+        }
+      });
+    },
     /**
      * \u662f\u5426\u901a\u8fc7\u9a8c\u8bc1
      * @template
@@ -19368,13 +19452,16 @@ define('bui/form/valid',['bui/common','bui/form/rules'],function (require) {
     /**
      * \u6e05\u9664\u9519\u8bef
      */
-    clearErrors : function(){
+    clearErrors : function(deep){
+      deep = deep == null ? true : deep;
       var _self = this,
         children = _self.get('children');
-
-      BUI.each(children,function(item){
-        item.clearErrors && item.clearErrors();
-      });
+      if(deep){
+        BUI.each(children,function(item){
+          item.clearErrors && item.clearErrors();
+        });
+      }
+      
       _self.set('error',null);
       _self.get('view').clearErrors();
     },
@@ -19528,6 +19615,9 @@ define('bui/form/groupvalid',['bui/form/valid'],function (require) {
      * \u662f\u5426\u901a\u8fc7\u9a8c\u8bc1
      */
     isValid : function(){
+      if(this.get('disabled')){ //\u5982\u679c\u88ab\u7981\u7528\uff0c\u5219\u4e0d\u8fdb\u884c\u9a8c\u8bc1\uff0c\u5e76\u4e14\u8ba4\u4e3atrue
+        return true;
+      }
       var _self = this,
         isValid = _self.isChildrenValid();
       return isValid && _self.isSelfValid();
@@ -19538,9 +19628,13 @@ define('bui/form/groupvalid',['bui/form/valid'],function (require) {
     valid : function(){
       var _self = this,
         children = _self.get('children');
-
+      if(_self.get('disabled')){ //\u7981\u7528\u65f6\u4e0d\u8fdb\u884c\u9a8c\u8bc1
+        return;
+      }
       BUI.each(children,function(item){
-        item.valid();
+        if(!item.get('disabled')){
+          item.valid();
+        }
       });
     },
     /**
@@ -19554,7 +19648,7 @@ define('bui/form/groupvalid',['bui/form/valid'],function (require) {
         isValid = true;
 
       BUI.each(children,function(item){
-        if(!item.isValid()){
+        if(!item.get('disabled') && !item.isValid()){
           isValid = false;
           return false;
         }
@@ -20402,6 +20496,7 @@ define('bui/form/form',['bui/common','bui/toolbar','bui/form/fieldcontainer'],fu
         _self.valid();
         if(!_self.isValid() || _self.onBeforeSubmit() === false){
           ev.preventDefault();
+          return;
         }
         if(_self.isValid() && _self.get('submitType') === TYPE_SUBMIT.AJAX){
           ev.preventDefault();
@@ -21575,6 +21670,16 @@ define('bui/form/remote',['bui/common'],function(require) {
       value : 500
     },
     /**
+     * @private
+     * \u7f13\u5b58\u9a8c\u8bc1\u7ed3\u679c\uff0c\u5982\u679c\u9a8c\u8bc1\u8fc7\u5bf9\u5e94\u7684\u503c\uff0c\u5219\u76f4\u63a5\u8fd4\u56de
+     * @type {Object}
+     */
+    cacheMap : {
+      value : {
+
+      }
+    },
+    /**
      * \u52a0\u8f7d\u7684\u6a21\u677f
      * @type {String}
      */
@@ -21650,10 +21755,11 @@ define('bui/form/remote',['bui/common'],function(require) {
     __bindUI : function(){
       var _self = this;
 
-      _self.on('change',function (ev) {
+      _self.on('valid',function (ev) {
         if(_self.get('remote') && _self.isValid()){
-          var data = _self.getRemoteParams();
-          _self._startRemote(data);
+          var value = _self.getControlValue(),
+            data = _self.getRemoteParams();
+          _self._startRemote(data,value);
         }
       });
 
@@ -21665,47 +21771,66 @@ define('bui/form/remote',['bui/common'],function(require) {
 
     },
     //\u5f00\u59cb\u5f02\u6b65\u8bf7\u6c42
-    _startRemote : function(data){
+    _startRemote : function(data,value){
       var _self = this,
         remoteHandler = _self.get('remoteHandler'),
+        cacheMap = _self.get('cacheMap'),
         remoteDaly = _self.get('remoteDaly');
       if(remoteHandler){
         //\u5982\u679c\u524d\u9762\u5df2\u7ecf\u53d1\u9001\u8fc7\u5f02\u6b65\u8bf7\u6c42\uff0c\u53d6\u6d88\u6389
         _self._cancelRemote(remoteHandler);
       }
+      if(cacheMap[value] != null){
+        _self._validResult(_self._getCallback(),cacheMap[value]);
+        return;
+      }
       //\u4f7f\u7528\u95ed\u5305\u8fdb\u884c\u5f02\u6b65\u8bf7\u6c42
       function dalayFunc(){
-        _self._remoteValid(data,remoteHandler);
+        _self._remoteValid(data,remoteHandler,value);
         _self.set('isLoading',true);
       }
       remoteHandler = setTimeout(dalayFunc,remoteDaly);
       _self.setInternal('remoteHandler',remoteHandler);
       
     },
-    //\u5f02\u6b65\u8bf7\u6c42
-    _remoteValid : function(data,remoteHandler){
+    _validResult : function(callback,data){
+      var _self = this,
+        error = callback(data);
+      _self.onRemoteComplete(error,data);
+    },
+    onRemoteComplete : function(error,data,remoteHandler){
+      var _self = this;
+      //\u786e\u8ba4\u5f53\u524d\u8fd4\u56de\u7684\u9519\u8bef\u662f\u5f53\u524d\u8bf7\u6c42\u7684\u7ed3\u679c\uff0c\u9632\u6b62\u8986\u76d6\u540e\u9762\u7684\u8bf7\u6c42
+      if(remoteHandler == _self.get('remoteHandler')){
+          _self.fire('remotecomplete',{error : error,data : data});
+          _self.set('isLoading',false);
+          _self.setInternal('remoteHandler',null);
+      } 
+    },
+    _getOptions : function(data){
       var _self = this,
         remote = _self.get('remote'),
         defaultRemote = _self.get('defaultRemote'),
         options = BUI.merge(defaultRemote,remote,{data : data});
-
-      function complete (error,data) {
-        //\u786e\u8ba4\u5f53\u524d\u8fd4\u56de\u7684\u9519\u8bef\u662f\u5f53\u524d\u8bf7\u6c42\u7684\u7ed3\u679c\uff0c\u9632\u6b62\u8986\u76d6\u540e\u9762\u7684\u8bf7\u6c42
-        if(remoteHandler == _self.get('remoteHandler')){
-          _self.fire('remotecomplete',{error : error,data : data});
-          _self.set('isLoading',false);
-          _self.setInternal('remoteHandler',null);
-        } 
-      }
-
+      return options;
+    },
+    _getCallback : function(){
+      return this._getOptions().callback;
+    },
+    //\u5f02\u6b65\u8bf7\u6c42
+    _remoteValid : function(data,remoteHandler,value){
+      var _self = this,
+        cacheMap = _self.get('cacheMap'),
+        options = _self._getOptions(data);
       options.success = function (data) {
         var callback = options.callback,
           error = callback(data);
-        complete(error,data);
+        cacheMap[value] = data; //\u7f13\u5b58\u5f02\u6b65\u7ed3\u679c
+        _self.onRemoteComplete(error,data,remoteHandler);
       };
 
       options.error = function (jqXHR, textStatus,errorThrown){
-        complete(errorThrown);
+        _self.onRemoteComplete(errorThrown,null,remoteHandler);
       };
 
       _self.fire('remotestart',{data : data});
@@ -22222,8 +22347,8 @@ define('bui/select/combox',['bui/common','bui/select/select'],function (require)
     renderUI : function(){
       var _self = this,
         picker = _self.get('picker');
-
-      picker.get('getFunction',getFunction);
+      picker.set('autoFocused',false);
+      picker.set('getFunction',getFunction);
     },
     _uiSetItems : function(v){
       var _self = this;
@@ -23770,7 +23895,7 @@ define('bui/tab/navtabitem',['bui/common'],function(requrie){
     handleDblClick:function(ev){
       var _self = this;
 
-      if(_self.fire('closing')!== false){
+      if(_self.get('closeable') && _self.fire('closing')!== false){
         _self.close();
       }
       _self.fire('dblclick',{domTarget : ev.target,domEvent : ev});
@@ -27182,7 +27307,7 @@ define('bui/calendar/panel',['bui/common'],function (require) {
  */
 
 define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/calendar/header','bui/calendar/panel','bui/toolbar'],function(require){
-  
+
   var BUI = require('bui/common'),
     PREFIX = BUI.prefix,
     CLS_PICKER_TIME = 'x-datepicker-time',
@@ -27263,7 +27388,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
         panel = new Panel(),
         footer = _self.get('footer') || _self._createFooter(),
         monthPicker = _self.get('monthPicker') || _self._createMonthPicker();
-        
+
 
       //\u6dfb\u52a0\u5934
       children.push(header);
@@ -27276,7 +27401,6 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
       _self.set('panel',panel);
       _self.set('footer',footer);
       _self.set('monthPicker',monthPicker);
-
     },
     renderUI : function(){
       var _self = this,
@@ -27306,7 +27430,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
       }else{
         _self._initTimePickerEvent();
       }
-    
+
       header.on('monthchange',function(e){
         _self._setYearMonth(e.year,e.month);
       });
@@ -27320,7 +27444,16 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
     },
     _initTimePicker : function(){
       var _self = this,
-        picker = new Picker({
+        lockTime = _self.get('lockTime'),
+        _timePickerEnum={hour:CLS_PICKER_HOUR,minute:CLS_PICKER_MINUTE,second:CLS_PICKER_SECOND};
+      if(lockTime){
+          for(var key in lockTime){
+              var noCls = _timePickerEnum[key.toLowerCase()];
+              _self.set(key,lockTime[key]);
+              _self.get('el').find("."+noCls).attr("disabled","");
+          }
+      }
+      var  picker = new Picker({
           elCls : CLS_TIME_PICKER,
           children:[{
             itemTpl : '<li><a href="#">{text}</a></li>'
@@ -27331,7 +27464,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
             points:['bl','bl'],
             offset:[0,-30]
           },
-          trigger : _self.get('el').find('.' + CLS_PICKER_TIME)
+          trigger : _self.get('el').find('.' +CLS_PICKER_TIME)
         });
       picker.render();
       _self._initTimePickerEvent(picker);
@@ -27413,10 +27546,10 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
           text:'\u786e\u5b9a',
           btnCls: 'button button-small button-primary',
           listeners:{
-            click:function(){            
+            click:function(){
               _self.fire('accept');
             }
-          }  
+          }
         });
       }else{
         items.push({
@@ -27429,10 +27562,10 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
               _self.set('selectedDate',day);
               _self.fire('accept');
             }
-          }  
+          }
         });
       }
-      
+
       return new Toolbar.Bar({
           elCls : PREFIX + 'calendar-footer',
           children:items
@@ -27469,7 +27602,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
     }
 
   },{
-    ATTRS : 
+    ATTRS :
     /**
      * @lends BUI.Calendar.Calendar#
      * @ignore
@@ -27564,11 +27697,24 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
       },
       /**
        * \u662f\u5426\u9009\u62e9\u65f6\u95f4,\u6b64\u9009\u9879\u51b3\u5b9a\u662f\u5426\u53ef\u4ee5\u9009\u62e9\u65f6\u95f4
-       * 
+       *
        * @cfg {Boolean} showTime
        */
       showTime : {
         value : false
+      },
+      /**
+      * \u9501\u5b9a\u65f6\u95f4\u9009\u62e9
+      *<pre><code>
+      *  var calendar = new Calendar.Calendar({
+      *  render:'#calendar',
+      *  lockTime : {hour:00,minute:30} //\u8868\u793a\u9501\u5b9a\u65f6\u4e3a00,\u5206\u4e3a30\u5206,\u79d2\u65e0\u9501\u7528\u6237\u53ef\u9009\u62e9
+      * });
+      * </code></pre>
+       *
+       * @type {Object}
+      */
+      lockTime :{
       },
       timeTpl : {
         value : '<input type="text" readonly class="' + CLS_PICKER_TIME + ' ' + CLS_PICKER_HOUR + '" />:<input type="text" readonly class="' + CLS_PICKER_TIME + ' ' + CLS_PICKER_MINUTE + '" />:<input type="text" readonly class="' + CLS_PICKER_TIME + ' ' + CLS_PICKER_SECOND + '" />'
@@ -27600,7 +27746,6 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
        */
       hour : {
         value : new Date().getHours()
-  
       },
       /**
        * \u5206,\u9ed8\u8ba4\u4e3a\u5f53\u524d\u5206
@@ -27659,7 +27804,8 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
       var _self = this,
         children = _self.get('children'),
         calendar = new Calendar({
-          showTime : _self.get('showTime')
+          showTime : _self.get('showTime'),
+          lockTime : _self.get('lockTime')
         });
 	
 	  if (!_self.get('dateMask')) {
@@ -27687,9 +27833,13 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
       date = date || new Date(new Date().setSeconds(0));
       calendar.set('selectedDate',DateUtil.getDate(date));
       if(_self.get('showTime')){
-        calendar.set('hour',date.getHours());
-        calendar.set('minute',date.getMinutes());
-        calendar.set('second',date.getSeconds());
+          var lockTime = this.get("lockTime"),
+              hour = lockTime&&lockTime['hour']?lockTime['hour']:date.getHours(),
+              minute = lockTime&&lockTime['minute']?lockTime['minute']:date.getMinutes(),
+              second = lockTime&&lockTime['second']?lockTime['second']:date.getSeconds();
+        calendar.set('hour',hour);
+        calendar.set('minute',minute);
+        calendar.set('second',second);
       }
     },
     /**
@@ -27751,6 +27901,19 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
       showTime : {
         value:false
       },
+       /**
+       * \u9501\u5b9a\u65f6\u95f4\u9009\u62e9
+       *<pre><code>
+       *  var calendar = new Calendar.Calendar({
+       *  render:'#calendar',
+       *  lockTime : {hour:00,minute:30} //\u8868\u793a\u9501\u5b9a\u65f6\u4e3a00,\u5206\u4e3a30\u5206,\u79d2\u65e0\u9501\u7528\u6237\u53ef\u9009\u62e9
+       * });
+       * </code></pre>
+       *
+       * @type {Object}
+       */
+      lockTime :{
+      },
       /**
        * \u6700\u5927\u65e5\u671f
        * <pre><code>
@@ -27782,9 +27945,9 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
 
       },
 	  /**
-       * \u8fd4\u56de\u65e5\u671f\u683c\u5f0f\uff0c\u5982\u679c\u4e0d\u8bbe\u7f6e\u9ed8\u8ba4\u4e3a yyyy-MM-dd\uff0c\u65f6\u95f4\u9009\u62e9\u4e3atrue\u65f6\u4e3a yyyy-MM-dd HH:mm:ss
+       * \u8fd4\u56de\u65e5\u671f\u683c\u5f0f\uff0c\u5982\u679c\u4e0d\u8bbe\u7f6e\u9ed8\u8ba4\u4e3a yyyy-mm-dd\uff0c\u65f6\u95f4\u9009\u62e9\u4e3atrue\u65f6\u4e3a yyyy-mm-dd HH:MM:ss
        * <pre><code>
-       *   calendar.set('dateMask','yyyy-MM-dd');
+       *   calendar.set('dateMask','yyyy-mm-dd');
        * </code></pre>
        * @type {String}
       */
@@ -27879,7 +28042,7 @@ define('bui/editor/mixin',function (require) {
      * @type {Boolean}
      */
     ignoreInputFields: {
-      value :false
+      value :true
     },
     /**
      * \u5185\u90e8\u63a7\u4ef6\u7684\u4ee3\u8868Value\u7684\u5b57\u6bb5
@@ -27904,6 +28067,9 @@ define('bui/editor/mixin',function (require) {
      */
     controlCfgField : {
 
+    },
+    focusable : {
+      value : true
     },
     autoUpdate : {
       value : true
@@ -30103,7 +30269,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
 
       $.each(columns, function (index,column) {
         var dataIndex = column.get('dataIndex');
-        cellsTpl.push(_self._getCellTpl(column, dataIndex, record));
+        cellsTpl.push(_self._getCellTpl(column, dataIndex, record,index));
       });
 
       if(_self.get('useEmptyCell')){
@@ -30251,7 +30417,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
         BUI.each(columns,function(column){
           var cellEl = _self.findCell(column.get('id'),$(element)),
             innerEl = cellEl.find('.' + CLS_GRID_CELL_INNER),
-            textTpl = _self._getCellText(column,record);
+            textTpl = _self._getCellText(column,record,index);
           innerEl.html(textTpl);
         });
         return element;
@@ -30320,28 +30486,28 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
       return this.get('columns');
     },
     //get cell text by record and column
-    _getCellText:function (column, record) {
+    _getCellText:function (column, record,index) {
         var _self = this,
           dataIndex = column.get('dataIndex'),
           textTpl = column.get('cellTpl') || _self.get('cellTextTpl'),
-          text = _self._getCellInnerText(column,dataIndex, record);
+          text = _self._getCellInnerText(column,dataIndex, record,index);
         return BUI.substitute(textTpl,{text:text, tips:_self._getTips(column, dataIndex, record)});
     },
-    _getCellInnerText : function(column,dataIndex, record){
+    _getCellInnerText : function(column,dataIndex, record,index){
       //renderer \u65f6\u53d1\u751f\u9519\u8bef\u53ef\u80fd\u6027\u5f88\u9ad8
       try{
         var _self = this,
           renderer = column.get('renderer'),
-          text = renderer ? renderer(record[dataIndex], record) : record[dataIndex];
+          text = renderer ? renderer(record[dataIndex], record,index) : record[dataIndex];
         return text == null ? '' : text;
       }catch(ex){
         throw 'column:' + column.get('title') +' fomat error!';
       }
     },
     //get cell template by config and record
-    _getCellTpl:function (column, dataIndex, record) {
+    _getCellTpl:function (column, dataIndex, record,index) {
       var _self = this,
-        cellText = _self._getCellText(column, record),
+        cellText = _self._getCellText(column, record,index),
         cellTpl = _self.get('cellTpl');
       return BUI.substitute(cellTpl,{
         elCls : column.get('elCls'),
@@ -31494,7 +31660,7 @@ define('bui/grid/format',function (require) {
  */
 ;(function(){
 var BASE = 'bui/grid/plugins/';
-define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE + 'cellediting',BASE + 'rowediting',BASE + 'dialogediting',BASE + 'menu',BASE + 'summary'],function (r) {
+define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE + 'cellediting',BASE + 'rowediting',BASE + 'autofit',BASE + 'dialogediting',BASE + 'menu',BASE + 'summary'],function (r) {
 	var BUI = r('bui/common'),
 		Selection = r(BASE + 'selection'),
 
@@ -31507,6 +31673,7 @@ define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE
 			CellEditing : r(BASE + 'cellediting'),
 			RowEditing : r(BASE + 'rowediting'),
 			DialogEditing : r(BASE + 'dialogediting'),
+			AutoFit : r(BASE + 'autofit'),
 			GridMenu : r(BASE + 'menu'),
 			Summary : r(BASE + 'summary')
 		});
@@ -31515,6 +31682,59 @@ define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE
 });
 })();
 /**
+ * @fileOverview \u81ea\u52a8\u9002\u5e94\u8868\u683c\u5bbd\u5ea6\u7684\u6269\u5c55
+ * @ignore
+ */
+
+define('bui/grid/plugins/autofit',['bui/common'],function (require) {
+  var BUI = require('bui/common');
+
+  /**
+   * \u8868\u683c\u81ea\u9002\u5e94\u5bbd\u5ea6
+   * @class BUI.Grid.Plugins.AutoFit
+   * @extends BUI.Base
+   */
+  var AutoFit = function(cfg){
+    AutoFit.superclass.constructor.call(this,cfg);
+  };
+
+  BUI.extend(AutoFit,BUI.Base);
+
+  AutoFit.ATTRS = {
+
+  };
+
+  BUI.augment(AutoFit,{
+    //\u7ed1\u5b9a\u4e8b\u4ef6
+    bindUI : function(grid){
+      var _self = this,
+        handler;
+      $(window).on('resize',function(){
+
+        function autoFit(){
+          clearTimeout(handler); //\u9632\u6b62resize\u77ed\u65f6\u95f4\u5185\u53cd\u590d\u8c03\u7528
+          handler = setTimeout(function(){
+            _self._autoFit(grid);
+          },100);
+        }
+        autoFit();
+      });
+    },
+    //\u81ea\u9002\u5e94\u5bbd\u5ea6
+    _autoFit : function(grid){
+      var render = grid.get('render'),
+          width;
+        grid.set('visible',false);
+        width = $(render).width();
+
+        grid.set('visible',true);
+        grid.set('width',width);
+    }
+
+  });
+
+  return AutoFit;
+});/**
  * @fileOverview Grid \u83dc\u5355
  * @ignore
  */
@@ -32528,8 +32748,8 @@ define('bui/grid/plugins/summary',['bui/common'],function (require) {
       var _self = this,
         store = grid.get('store');
       if(store){
-        store.on('beforeProcessLoad',function(data){
-          _self._processSummary(data);
+        store.on('beforeprocessload',function(ev){
+          _self._processSummary(ev.data);
         });
         store.on('add',function(){
           _self.resetPageSummary();
@@ -34525,7 +34745,8 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         if(parent && _self.isChecked(parent)){ //\u5982\u679c\u7236\u8282\u70b9\u9009\u4e2d\uff0c\u5f53\u524d\u8282\u70b9\u5fc5\u987b\u52fe\u9009
           _self.setStatusValue(node,'checked',true);
         }
-        if(_self._isAllChildrenChecked(node)){
+        //\u8282\u70b9\u4e3a\u975e\u53f6\u5b50\u8282\u70b9\uff0c\u540c\u65f6\u53f6\u5b50\u8282\u70b9\u4e0d\u4e3a\u7a7a\u65f6\u6839\u636e\u53f6\u5b50\u8282\u70b9\u63a7\u5236
+        if(node.children && node.children.length && _self._isAllChildrenChecked(node)){
           _self.setStatusValue(node,'checked',true);
         }
       }
@@ -34822,6 +35043,7 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
     //\u52a0\u8f7d\u5b8c\u8282\u70b9
     _loadNode : function(node){
       var _self = this;
+      _self._initChecked(node,true);
       _self.expandNode(node);
       _self._updateIcons(node);
       _self.setItemStatus(node,LOADING,false);
