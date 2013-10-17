@@ -2733,7 +2733,7 @@ define('bui/observable',['bui/util'],function (r) {
  * @ignore
  * @author dxq613@gmail.com
  */
-define('bui/ua',function(){
+define('bui/ua', function () {
 
     function numberify(s) {
         var c = 0;
@@ -2743,37 +2743,50 @@ define('bui/ua',function(){
         }));
     };
 
-    var UA = $.UA || (function(){
-        var browser = $.browser,
+    function uaMatch(s) {
+        s = s.toLowerCase();
+        var r = /(chrome)[ \/]([\w.]+)/.exec(s) || /(webkit)[ \/]([\w.]+)/.exec(s) || /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(s) || /(msie) ([\w.]+)/.exec(s) || s.indexOf("compatible") < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec(s) || [],
+            a = {
+                browser: r[1] || "",
+                version: r[2] || "0"
+            },
+            b = {};
+        a.browser && (b[a.browser] = !0, b.version = a.version),
+            b.chrome ? b.webkit = !0 : b.webkit && (b.safari = !0);
+        return b;
+    }
+
+    var UA = $.UA || (function () {
+        var browser = $.browser || uaMatch(navigator.userAgent),
             versionNumber = numberify(browser.version),
             /**
              * \u6d4f\u89c8\u5668\u7248\u672c\u68c0\u6d4b
              * @class BUI.UA
-                     * @singleton
+             * @singleton
              */
-            ua = 
+                ua =
             {
                 /**
                  * ie \u7248\u672c
                  * @type {Number}
                  */
-                ie : browser.msie && versionNumber,
+                ie: browser.msie && versionNumber,
 
                 /**
                  * webkit \u7248\u672c
                  * @type {Number}
                  */
-                webkit : browser.webkit && versionNumber,
+                webkit: browser.webkit && versionNumber,
                 /**
                  * opera \u7248\u672c
                  * @type {Number}
                  */
-                opera : browser.opera && versionNumber,
+                opera: browser.opera && versionNumber,
                 /**
                  * mozilla \u706b\u72d0\u7248\u672c
                  * @type {Number}
                  */
-                mozilla : browser.mozilla && versionNumber
+                mozilla: browser.mozilla && versionNumber
             };
         return ua;
     })();
@@ -6290,18 +6303,22 @@ define('bui/component/uibase/keynav',['bui/keycode'],function (require) {
       if(ignoreInputFields && $(ev.target).is('input,select,textarea')){
         return;
       }
-      ev.preventDefault();
+      
       switch(code){
         case KeyCode.UP :
+          ev.preventDefault();
           _self.handleNavUp(ev);
           break;
         case KeyCode.DOWN : 
+          ev.preventDefault();
           _self.handleNavDown(ev);
           break;
         case KeyCode.RIGHT : 
+          ev.preventDefault();
           _self.handleNavRight(ev);
           break;
         case KeyCode.LEFT : 
+          ev.preventDefault();
           _self.handleNavLeft(ev);
           break;
         case KeyCode.ENTER : 
@@ -8068,7 +8085,6 @@ define('bui/component/uibase/selection',function () {
          *   list.setSelected(item);
          * </code></pre>
          * @param {Object} item \u8bb0\u5f55\u6216\u8005\u5b50\u63a7\u4ef6
-         * @param {BUI.Component.Controller|Object} element \u5b50\u63a7\u4ef6\u6216\u8005DOM\u7ed3\u6784
          */
         setSelected: function(item){
             var _self = this,
@@ -13177,7 +13193,7 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
       var _self = this;
 
       node = _self._add(node,parent,index);
-      _self.fire('add',{node : node,index : index});
+      _self.fire('add',{node : node,record : node,index : index});
       return node;
     },
     //
@@ -13229,9 +13245,25 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
       if(parent.children.length === 0){
         parent.leaf = true;
       }
-      this.fire('remove',{node : node , index : index});
+      this.fire('remove',{node : node ,record : node , index : index});
       node.parent = null;
       return node;
+    },
+    /**
+    * \u8bbe\u7f6e\u8bb0\u5f55\u7684\u503c \uff0c\u89e6\u53d1 update \u4e8b\u4ef6
+    * <pre><code>
+    *  store.setValue(obj,'value','new value');
+    * </code></pre>
+    * @param {Object} obj \u4fee\u6539\u7684\u8bb0\u5f55
+    * @param {String} field \u4fee\u6539\u7684\u5b57\u6bb5\u540d
+    * @param {Object} value \u4fee\u6539\u7684\u503c
+    */
+    setValue : function(node,field,value){
+      var 
+        _self = this;
+        node[field] = value;
+
+      _self.fire('update',{node:node,record : node,field:field,value:value});
     },
     /**
      * \u66f4\u65b0\u8282\u70b9
@@ -13243,7 +13275,7 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
      * @return {BUI.Data.Node} \u66f4\u65b0\u8282\u70b9
      */
     update : function(node){
-      this.fire('update',{node : node});
+      this.fire('update',{node : node,record : node});
     },
     /**
      * \u8fd4\u56de\u7f13\u5b58\u7684\u6570\u636e\uff0c\u6839\u8282\u70b9\u7684\u76f4\u63a5\u5b50\u8282\u70b9\u96c6\u5408
@@ -14139,14 +14171,15 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
     * </code></pre>
     * @param {Object} obj \u4fee\u6539\u7684\u8bb0\u5f55
     * @param {Boolean} [isMatch = false] \u662f\u5426\u9700\u8981\u8fdb\u884c\u5339\u914d\uff0c\u68c0\u6d4b\u6307\u5b9a\u7684\u8bb0\u5f55\u662f\u5426\u5728\u96c6\u5408\u4e2d
+    * @param {Function} [match = matchFunction] \u5339\u914d\u51fd\u6570
     */
-    update : function(obj,isMatch){
+    update : function(obj,isMatch,match){
       var record = obj,
         _self = this,
         match = null,
         index = null;
       if(isMatch){
-        match = _self._getDefaultMatch();
+        match = match || _self._getDefaultMatch();
         index = _self.findIndexBy(obj,match);
         if(index >=0){
           record = _self.getResult()[index];
@@ -18361,6 +18394,21 @@ define('bui/form/selectfield',['bui/common','bui/form/basefield'],function (requ
       }
     },
     /**
+     * \u83b7\u53d6\u9009\u4e2d\u7684\u6587\u672c
+     * @return {String} \u9009\u4e2d\u7684\u6587\u672c
+     */
+    getSelectedText : function(){
+      var _self = this,
+        select = _self.get('select'),
+        innerControl = _self.getInnerControl();
+      if(innerControl.is('select')){
+        var dom = innerControl[0];
+        return dom.options[dom.selectedIndex].text;
+      }else{
+        return select.getSelectedText();
+      }
+    },
+    /**
      * \u83b7\u53d6tip\u663e\u793a\u5bf9\u5e94\u7684\u5143\u7d20
      * @protected
      * @override
@@ -19079,6 +19127,79 @@ define('bui/form/listfield',['bui/common','bui/form/basefield','bui/list'],funct
 
   return List;
 });/**
+ * @fileOverview \u6a21\u62df\u9009\u62e9\u6846\u5728\u8868\u5355\u4e2d
+ * @ignore
+ */
+
+define('bui/form/uploaderfield',['bui/common','bui/form/basefield'],function (require) {
+
+  var BUI = require('bui/common'),
+    JSON = BUI.JSON,
+    Field = require('bui/form/basefield');
+
+  /**
+   * \u8868\u5355\u4e0a\u4f20\u57df
+   * @class BUI.Form.Field.Upload
+   * @extends BUI.Form.Field
+   */
+  var uploaderField = Field.extend({
+    //\u751f\u6210upload
+    renderUI : function(){
+      var _self = this,
+        innerControl = _self.getInnerControl();
+      if(_self.get('srcNode') && innerControl.get(0).type === 'file'){ //\u5982\u679c\u4f7f\u7528\u73b0\u6709DOM\u751f\u6210\uff0c\u4e0d\u4f7f\u7528\u4e0a\u4f20\u7ec4\u4ef6
+        return;
+      }
+      _self._initUpload();
+    },
+    _initUpload: function(){
+      var _self = this,
+        children = _self.get('children'),
+        uploader = _self.get('uploader') || {};
+
+      BUI.use('bui/uploader', function(Uploader){
+        uploader.render = _self.getControlContainer();
+        uploader.autoRender = true;
+        uploader = new Uploader.Uploader(uploader);
+        _self.set('uploader', uploader);
+        _self.set('isCreate',true);
+        _self.get('children').push(uploader);
+        uploader.get('uploaderType').on('success', function(ev){
+          var items = uploader.get('queue').getItems();
+          _self.setControlValue(items);
+        });
+      });
+    },
+    setControlValue: function(items){
+      var _self = this,
+        innerControl = _self.getInnerControl(),
+        result = [];
+      BUI.each(items, function(item){
+        result.push(item.result);
+      })
+      innerControl.val(JSON.stringify(result));
+    }
+  },{
+    ATTRS : {
+      /**
+       * \u5185\u90e8\u8868\u5355\u5143\u7d20\u7684\u5bb9\u5668
+       * @type {String}
+       */
+      controlTpl : {
+        value : '<input type="hidden"/>'
+      },
+      uploader: {
+      },
+      value:{
+        value: []
+      }
+    }
+  },{
+    xclass : 'form-field-uploader'
+  });
+
+  return uploaderField;
+});/**
  * @fileOverview \u53ef\u52fe\u9009\u7684\u5217\u8868\uff0c\u6a21\u62df\u591a\u4e2acheckbox
  * @ignore
  */
@@ -19176,6 +19297,7 @@ define(BASE + 'field',['bui/common',BASE + 'textfield',BASE + 'datefield',BASE +
     Checkbox : require(BASE + 'checkboxfield'),
     Plain : require(BASE + 'plainfield'),
     List : require(BASE + 'listfield'),
+    Uploader : require(BASE + 'uploaderfield'),
     CheckList : require(BASE + 'checklistfield'),
     RadioList : require(BASE + 'radiolistfield')
   });
@@ -25433,9 +25555,12 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
         ID_NEXT = 'next',
         ID_LAST = 'last',
         ID_SKIP = 'skip',
+        ID_REFRESH = 'refresh',
         ID_TOTAL_PAGE = 'totalPage',
         ID_CURRENT_PAGE = 'curPage',
-        ID_TOTAL_COUNT = 'totalCount';
+        ID_TOTAL_COUNT = 'totalCount',
+        ID_BUTTONS = [ID_FIRST,ID_PREV,ID_NEXT,ID_LAST,ID_SKIP,ID_REFRESH],
+        ID_TEXTS = [ID_TOTAL_PAGE,ID_CURRENT_PAGE,ID_TOTAL_COUNT];
 
     /**
      * \u5206\u9875\u680f
@@ -25460,11 +25585,26 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                     children = _self.get('children'),
                     items = _self.get('items'),
                     store = _self.get('store');
-                if(!items || items.length){
+                if(!items){
                     items = _self._getItems();
                     BUI.each(items, function (item) {
                         children.push(item);//item
                     });
+                }else{
+                    BUI.each(items, function (item,index) { //\u8f6c\u6362\u5bf9\u5e94\u7684\u5206\u9875\u680f
+                        if(BUI.isString(item)){
+                            if(BUI.Array.contains(item,ID_BUTTONS)){
+                                item = _self._getButtonItem(item);
+                            }else if(BUI.Array.contains(item,ID_TEXTS)){
+                            
+                                item = _self._getTextItem(item);
+                            }else{
+                                item = {xtype : item};
+                            }
+
+                        }
+                        children.push(item);
+                    }); 
                 }
                 
                 if (store && store.get('pageSize')) {
@@ -25516,7 +25656,7 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                 
                 //\u8bbe\u7f6e\u52a0\u8f7d\u6570\u636e\u540e\u7ffb\u9875\u680f\u7684\u72b6\u6001
                 totalCount = store.getTotalCount();
-                end = totalCount - start > pageSize ? start + store.getCount() : totalCount;
+                end = totalCount - start > pageSize ? start + store.getCount() - 1: totalCount;
                 totalPage = parseInt((totalCount + pageSize - 1) / pageSize, 10);
                 totalPage = totalPage > 0 ? totalPage : 1;
                 curPage = parseInt(start / pageSize, 10) + 1;
@@ -25558,6 +25698,11 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                 //skip to one page
                 _self._bindButtonItemEvent(ID_SKIP, function () {
                     handleSkip();
+                });
+
+                //refresh
+                _self._bindButtonItemEvent(ID_REFRESH, function () {
+                    _self.jumpToPage(_self.get('curPage'));
                 });
                 //input page number and press key "enter"
                 var curPage = _self.getItem(ID_CURRENT_PAGE);
@@ -25657,8 +25802,7 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
             //get text item's template
             _getTextItemTpl:function (id) {
                 var _self = this,
-                    obj = {};
-                obj[id] = _self.get(id);
+                    obj = _self.getAttrVals();
                 return BUI.substitute(this.get(id + 'Tpl'), obj);
             },
             //Whether to allow jump, if it had been in the current page or not within the scope of effective page, not allowed to jump
@@ -25694,6 +25838,7 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
             //show the information of current page , total count of pages and total count of records
             _setNumberPages:function () {
                 var _self = this,
+                    items = _self.getItems();/*,
                     totalPageItem = _self.getItem(ID_TOTAL_PAGE),
                     totalCountItem = _self.getItem(ID_TOTAL_COUNT);
                 if (totalPageItem) {
@@ -25702,20 +25847,32 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                 _self._setCurrentPageValue(_self.get(ID_CURRENT_PAGE));
                 if (totalCountItem) {
                     totalCountItem.set('content', _self._getTextItemTpl(ID_TOTAL_COUNT));
-                }
+                }*/
+                BUI.each(items,function(item){
+                    if(item.__xclass === 'bar-item-text'){
+                        item.set('content', _self._getTextItemTpl(item.get('id')));
+                    }
+                });
+
             },
             _getCurrentPageValue:function (curItem) {
                 var _self = this;
                 curItem = curItem || _self.getItem(ID_CURRENT_PAGE);
-                var textEl = curItem.get('el').find('input');
-                return textEl.val();
+                if(curItem){
+                    var textEl = curItem.get('el').find('input');
+                    return textEl.val();
+                }
+                
             },
             //show current page in textbox
             _setCurrentPageValue:function (value, curItem) {
                 var _self = this;
                 curItem = curItem || _self.getItem(ID_CURRENT_PAGE);
-                var textEl = curItem.get('el').find('input');
-                textEl.val(value);
+                if(curItem){
+                    var textEl = curItem.get('el').find('input');
+                    textEl.val(value);
+                }
+                
             }
         }, {
             ATTRS:
@@ -25795,6 +25952,12 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                 skipCls:{
                     value:PREFIX + 'pb-skip'
                 },
+                refreshText : {
+                    value : '\u5237\u65b0'
+                },
+                refreshCls : {
+                    value:PREFIX + 'pb-refresh'
+                },
                 /**
                  * the template of total page info
                  * @default {String} '\u5171 {totalPage} \u9875'
@@ -25808,14 +25971,17 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
                  */
                 curPageTpl:{
                     value:'\u7b2c <input type="text" '+
-                        'autocomplete="off" class="'+PREFIX+'pb-page" size="20" name="inputItem"> \u9875'
+                        'autocomplete="off" class="'+PREFIX+'pb-page" size="20" value="{curPage}" name="inputItem"> \u9875'
                 },
                 /**
                  * the template of total count info
-                 * @default {String} '\u7b2c &lt;input type="text" autocomplete="off" class="bui-pb-page" size="20" name="inputItem"&gt; \u9875'
+                 * @default {String} '\u5171{totalCount}\u6761\u8bb0\u5f55'
                  */
                 totalCountTpl:{
                     value:'\u5171{totalCount}\u6761\u8bb0\u5f55'
+                },
+                autoInitItems : {
+                    value : false
                 },
                 /**
                  * current page of the paging bar
@@ -25862,6 +26028,7 @@ define('bui/toolbar/pagingbar',['bui/toolbar/bar'],function(require) {
             ID_NEXT:ID_NEXT,
             ID_LAST:ID_LAST,
             ID_SKIP:ID_SKIP,
+            ID_REFRESH: ID_REFRESH,
             ID_TOTAL_PAGE:ID_TOTAL_PAGE,
             ID_CURRENT_PAGE:ID_CURRENT_PAGE,
             ID_TOTAL_COUNT:ID_TOTAL_COUNT
@@ -27556,6 +27723,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
           xclass:'bar-item-button',
           text:'\u4eca\u5929',
           btnCls: 'button button-small',
+		  id:'todayBtn',
           listeners:{
             click:function(){
               var day = today();
@@ -27570,6 +27738,17 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
           elCls : PREFIX + 'calendar-footer',
           children:items
         });
+    },
+	//\u66f4\u65b0\u4eca\u5929\u6309\u94ae\u7684\u72b6\u6001
+    _updateTodayBtnAble: function () {
+            var _self = this;
+            if (!_self.get('showTime')) {
+                var footer = _self.get("footer"),
+                    panelView = _self.get("panel").get("view"),
+                    now = today(),
+                    btn = footer.getItem("todayBtn");
+                panelView._isInRange(now) ? btn.enable() : btn.disable();
+            }
     },
     //\u8bbe\u7f6e\u6240\u9009\u65e5\u671f
     _uiSetSelectedDate : function(v){
@@ -27594,11 +27773,13 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
     _uiSetMaxDate : function(v){
       var _self = this;
       _self.get('panel').set('maxDate',v);
+	  _self._updateTodayBtnAble();
     },
     //\u8bbe\u7f6e\u6700\u5c0f\u503c
     _uiSetMinDate : function(v){
       var _self = this;
       _self.get('panel').set('minDate',v);
+	  _self._updateTodayBtnAble();
     }
 
   },{
@@ -27805,7 +27986,9 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
         children = _self.get('children'),
         calendar = new Calendar({
           showTime : _self.get('showTime'),
-          lockTime : _self.get('lockTime')
+          lockTime : _self.get('lockTime'),
+          minDate: _self.get('minDate'),
+          maxDate: _self.get('maxDate')
         });
 	
 	  if (!_self.get('dateMask')) {
@@ -28130,8 +28313,9 @@ define('bui/editor/mixin',function (require) {
     /**
      * \u8bbe\u7f6e\u503c\uff0c\u503c\u7684\u7c7b\u578b\u53d6\u51b3\u4e8e\u7f16\u8f91\u5668\u7f16\u8f91\u7684\u6570\u636e
      * @param {String|Object} value \u7f16\u8f91\u5668\u663e\u793a\u7684\u503c
+     * @param {Boolean} [hideError=false] \u8bbe\u7f6e\u503c\u65f6\u662f\u5426\u9690\u85cf\u9519\u8bef
      */
-    setValue : function(value){
+    setValue : function(value,hideError){
       var _self = this,
         innerControl = _self.getInnerControl();
       _self.set('editValue',value);
@@ -28139,6 +28323,9 @@ define('bui/editor/mixin',function (require) {
       innerControl.set(_self.get('innerValueField'),value);
       if(!value){//\u7f16\u8f91\u7684\u503c\u7b49\u4e8e\u7a7a\uff0c\u5219\u53ef\u80fd\u4e0d\u4f1a\u89e6\u53d1\u9a8c\u8bc1
         _self.valid();
+      }
+      if(hideError){
+        _self.clearErrors();
       }
     },
     /**
@@ -28683,11 +28870,11 @@ define('bui/editor/dialog',['bui/overlay','bui/editor/mixin'],function (require)
      * \u53d6\u6d88\u7f16\u8f91
      */
     cancel : function(){
-      if(this.onCancel()!== false){
+      //if(this.onCancel()!== false){
         this.fire('cancel');
         this.clearValue();
         this.close();
-      } 
+      //} 
     },
     /**
      * @protected
@@ -28770,6 +28957,11 @@ define('bui/editor/dialog',['bui/overlay','bui/editor/mixin'],function (require)
       success : {
         value : function () {
           this.accept();
+        }
+      },
+      cancel : {
+        value : function(){
+          this.cancel();
         }
       },
       /**
@@ -30267,7 +30459,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
         cellsTpl = [],
         rowEl;
 
-      $.each(columns, function (index,column) {
+      BUI.each(columns, function (column) {
         var dataIndex = column.get('dataIndex');
         cellsTpl.push(_self._getCellTpl(column, dataIndex, record,index));
       });
@@ -30953,14 +31145,6 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
 
       _self.on('itemsshow',function(){
         _self.fire('aftershow');
-
-        if(_self.get('emptyDataTpl')){
-          if(store && store.getCount() == 0){
-            _self.get('view').showEmptyText();
-          }else{
-            _self.get('view').clearEmptyText();
-          }
-        }
       });
 
       _self.on('itemsclear',function(){
@@ -31072,7 +31256,7 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
               pageSize : store.pageSize
             };
             if(bar.pagingBar !== true){
-              pagingBarCfg = S.merge(pagingBarCfg, bar.pagingBar);
+              pagingBarCfg = BUI.merge(pagingBarCfg, bar.pagingBar);
             }
             bar.children.push(pagingBarCfg);
           }
@@ -31131,6 +31315,22 @@ define('bui/grid/grid',['bui/common','bui/mask','bui/toolbar','bui/list','bui/gr
         header.setTableWidth();
       }
       
+    },
+    /**
+     * \u52a0\u8f7d\u6570\u636e
+     * @protected
+     */
+    onLoad : function(){
+      var _self = this,
+        store = _self.get('store');
+      grid.superclass.onLoad.call(this);
+      if(_self.get('emptyDataTpl')){ //\u521d\u59cb\u5316\u7684\u65f6\u5019\u4e0d\u663e\u793a\u7a7a\u767d\u6570\u636e\u7684\u6587\u672c
+        if(store && store.getCount() == 0){
+          _self.get('view').showEmptyText();
+        }else{
+          _self.get('view').clearEmptyText();
+        }
+      }
     }
   },{
     ATTRS : {
@@ -31660,7 +31860,8 @@ define('bui/grid/format',function (require) {
  */
 ;(function(){
 var BASE = 'bui/grid/plugins/';
-define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE + 'cellediting',BASE + 'rowediting',BASE + 'autofit',BASE + 'dialogediting',BASE + 'menu',BASE + 'summary'],function (r) {
+define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE + 'cellediting',BASE + 'rowediting',BASE + 'autofit',
+	BASE + 'dialogediting',BASE + 'menu',BASE + 'summary',BASE + 'rownumber'],function (r) {
 	var BUI = r('bui/common'),
 		Selection = r(BASE + 'selection'),
 
@@ -31675,7 +31876,8 @@ define('bui/grid/plugins',['bui/common',BASE + 'selection',BASE + 'cascade',BASE
 			DialogEditing : r(BASE + 'dialogediting'),
 			AutoFit : r(BASE + 'autofit'),
 			GridMenu : r(BASE + 'menu'),
-			Summary : r(BASE + 'summary')
+			Summary : r(BASE + 'summary'),
+			RowNumber : r(BASE + 'rownumber')
 		});
 		
 	return Plugins;
@@ -33968,6 +34170,11 @@ define('bui/grid/plugins/dialogediting',['bui/common'],function (require) {
         }
       }else{
         store.update(curRecord);
+        /*if(store.contains(curRecord)){
+          
+        }else{
+          store.add(curRecord);
+        }*/
       }
     },
     /**
@@ -33977,9 +34184,8 @@ define('bui/grid/plugins/dialogediting',['bui/common'],function (require) {
     showEditor : function(record){
       var _self = this,
         editor = _self.get('editor');
-
       editor.show();
-      editor.setValue(record);
+      editor.setValue(record,true); //\u8bbe\u7f6e\u503c\uff0c\u5e76\u4e14\u9690\u85cf\u9519\u8bef
       _self.set('record',record);
       _self.fire('recordchange',{record : record,editType : _self.get('editType')});
     },
@@ -34002,6 +34208,55 @@ define('bui/grid/plugins/dialogediting',['bui/common'],function (require) {
   });
 
   return Dialog;
+});define('bui/grid/plugins/rownumber',function (require) {
+
+  var CLS_NUMBER = 'x-grid-rownumber';
+  function RowNumber(config){
+    RowNumber.superclass.constructor.call(this, config);
+  }
+
+  BUI.extend(RowNumber,BUI.Base);
+
+  RowNumber.ATTRS = 
+  /**
+   * @lends BUI.Grid.Plugins.CheckSelection.prototype
+   * @ignore
+   */ 
+  {
+    /**
+    * column's width which contains the checkbox
+    */
+    width : {
+      value : 40
+    },
+    /**
+    * @private
+    */
+    column : {
+      
+    }
+  };
+
+  BUI.augment(RowNumber, 
+  {
+    createDom : function(grid){
+      var _self = this;
+      var cfg = {
+            title : '',
+            width : _self.get('width'),
+            fixed : true,
+            resizable:false,
+            sortable : false,
+            renderer : function(value,obj,index){return index + 1;},
+            elCls : CLS_NUMBER
+        },
+        column = grid.addColumn(cfg,0);
+      _self.set('column',column);
+    }
+  });
+  
+  return RowNumber;
+  
 });/**
  * @fileOverview \u9009\u62e9\u6846\u547d\u540d\u7a7a\u95f4\u5165\u53e3\u6587\u4ef6
  * @ignore
