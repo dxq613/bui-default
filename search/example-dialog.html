@@ -134,6 +134,7 @@
         triggerCls : 'btn-edit', //触发显示Dialog的样式
         editor : {
           success : function(){ //点击确认的时候触发，可以进行异步提交
+            /**/
             var editor = this,
               record = editing.get('record'), // 获取编辑的记录
               data = editor.getValue(); //编辑完成的记录
@@ -193,8 +194,7 @@
 
     function addFunction(){
       var newData = {isNew : true}; //标志是新增加的记录
-      store.addAt(newData,0);
-      editing.edit(newData,'name'); //添加记录后，直接编辑
+      editing.add(newData,'name'); //添加记录后，直接编辑
     }
 
     function submit(record,editor){

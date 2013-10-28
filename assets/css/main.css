@@ -139,7 +139,7 @@ iframe {
 }
 
 .nav-item-inner,.dl4-hide-list  .dl-hover{
-  background:url('http://img01.taobaocdn.com/tps/i1/T1eQj0XndXXXXp89vi-806-614.png') no-repeat 0 0  transparent;
+  background:url('../img/icon-806-614.png') no-repeat 0 0  transparent;
 }
 
 .nav-list .dl-hover{
@@ -434,7 +434,7 @@ iframe {
 }
 
 .dl-selected .dl-hide-current {
-  background-image: url('http://img04.taobaocdn.com/tps/i4/T1SMojXedaXXXCL3TD-469-300.png');
+  background-image: url('../img/sprite-469-300.png');
 }
 
 .dl-tab-content {
