@@ -1,7 +1,9 @@
 
-BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
+define('common/main',['bui/menu','bui/tab'],function(require) {
   //定义全局命名空间
-  var PageUtil = BUI.app('PageUtil');
+  var PageUtil = BUI.app('PageUtil'),
+    Menu = require('bui/menu'),
+    Tab = require('bui/tab');
 
   var CLS_SELECTE = 'dl-selected',//选中的模块样式
       CLS_HIDDEN = 'ks-hidden',//隐藏的模块样式
@@ -718,4 +720,6 @@ BUI.use(['bui/menu','bui/tab'],function(Menu,Tab) {
     
   });
   PageUtil.MainPage = mainPage;
+
+  return mainPage;
 });

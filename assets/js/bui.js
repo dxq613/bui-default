@@ -1536,7 +1536,7 @@ BUI.setDebug = function (debug) {
     });
   }
 }
-define('bui/common',['bui/ua','bui/json','bui/date','bui/array','bui/keycode','bui/observable','bui/observable','bui/base','bui/component'],function(require){
+define('bui/common',['bui/ua','bui/json','bui/date','bui/array','bui/keycode','bui/observable','bui/base','bui/component'],function(require){
 
   var BUI = require('bui/util');
 
@@ -1580,6 +1580,40 @@ define('bui/util',function(){
       }
      
     })(jQuery);
+  /**
+   * @ignore
+   * \u5904\u4e8e\u6548\u7387\u7684\u76ee\u7684\uff0c\u590d\u5236\u5c5e\u6027
+   */
+  function mixAttrs(to,from){
+
+    for(var c in from){
+        if(from.hasOwnProperty(c)){
+            to[c] = to[c] || {};
+            mixAttr(to[c],from[c]);
+        }
+    }
+    
+  }
+  //\u5408\u5e76\u5c5e\u6027
+  function mixAttr(attr,attrConfig){
+    for (var p in attrConfig) {
+      if(attrConfig.hasOwnProperty(p)){
+        if(p == 'value'){
+          if(BUI.isObject(attrConfig[p])){
+            attr[p] = attr[p] || {};
+            BUI.mix(true,attr[p], attrConfig[p]); 
+          }else if(BUI.isArray(attrConfig[p])){
+            attr[p] = attr[p] || [];
+            BUI.mix(true,attr[p], attrConfig[p]); 
+          }else{
+            attr[p] = attrConfig[p];
+          }
+        }else{
+          attr[p] = attrConfig[p];
+        }
+      }
+    };
+  }
     
   var win = window,
     doc = document,
@@ -1845,7 +1879,13 @@ define('bui/util',function(){
                             // \u4e0d\u8986\u76d6\u4e3b\u7c7b\u4e0a\u7684\u5b9a\u4e49\uff0c\u56e0\u4e3a\u7ee7\u627f\u5c42\u6b21\u4e0a\u6269\u5c55\u7c7b\u6bd4\u4e3b\u7c7b\u5c42\u6b21\u9ad8
                             // \u4f46\u662f\u503c\u662f\u5bf9\u8c61\u7684\u8bdd\u4f1a\u6df1\u5ea6\u5408\u5e76
                             // \u6ce8\u610f\uff1a\u6700\u597d\u503c\u662f\u7b80\u5355\u5bf9\u8c61\uff0c\u81ea\u5b9a\u4e49 new \u51fa\u6765\u7684\u5bf9\u8c61\u5c31\u4f1a\u6709\u95ee\u9898(\u7528 function return \u51fa\u6765)!
-                             BUI.mix(true,desc[K], ext[K]);
+                            if(K == 'ATTRS'){
+                                //BUI.mix(true,desc[K], ext[K]);
+                                mixAttrs(desc[K],ext[K]);
+                            }else{
+                                BUI.mix(desc[K], ext[K]);
+                            }
+                            
                         }
                     });
                 }
@@ -2130,24 +2170,24 @@ define('bui/util',function(){
     */
     setField:function(form,fieldName,value){
       var fields = form.elements[fieldName];
-      if(BUI.isArray(fields) || (fields && fields.length)){
+      if(fields && fields.type){
+        formHelper._setFieldValue(fields,value);
+      }else if(BUI.isArray(fields) || (fields && fields.length)){
         BUI.each(fields,function(field){
           formHelper._setFieldValue(field,value);
         });
-      }else{
-        formHelper._setFieldValue(fields,value);
       }
     },
     //\u8bbe\u7f6e\u5b57\u6bb5\u7684\u503c
     _setFieldValue : function(field,value){
         if(field.type === 'checkbox'){
-            if(field.value == value ||(BUI.isArray(value) && BUI.Array.indexOf(field.value,value) !== -1)) {
+            if(field.value == ''+ value ||(BUI.isArray(value) && BUI.Array.indexOf(field.value,value) !== -1)) {
               $(field).attr('checked',true);
             }else{
               $(field).attr('checked',false);  
             }
         }else if(field.type === 'radio'){
-            if(field.value == value){
+            if(field.value == ''+  value){
               $(field).attr('checked',true);
             }else{
               $(field).attr('checked',false); 
@@ -3434,28 +3474,29 @@ define('bui/date', function () {
         if (isNaN(dtTmp)) {
             dtTmp = new Date();
         }
+        NumDay = parseInt(NumDay,10);
         switch (strInterval) {
             case   's':
-                dtTmp = new Date(dtTmp.getTime() + (1000 * parseInt(NumDay)));
+                dtTmp = new Date(dtTmp.getTime() + (1000 * NumDay));
                 break;
             case   'n':
-                dtTmp = new Date(dtTmp.getTime() + (60000 * parseInt(NumDay)));
+                dtTmp = new Date(dtTmp.getTime() + (60000 * NumDay));
                 break;
             case   'h':
-                dtTmp = new Date(dtTmp.getTime() + (3600000 * parseInt(NumDay)));
+                dtTmp = new Date(dtTmp.getTime() + (3600000 * NumDay));
                 break;
             case   'd':
-                dtTmp = new Date(dtTmp.getTime() + (86400000 * parseInt(NumDay)));
+                dtTmp = new Date(dtTmp.getTime() + (86400000 * NumDay));
                 break;
             case   'w':
-                dtTmp = new Date(dtTmp.getTime() + ((86400000 * 7) * parseInt(NumDay)));
+                dtTmp = new Date(dtTmp.getTime() + ((86400000 * 7) * NumDay));
                 break;
             case   'm':
-                dtTmp = new Date(dtTmp.getFullYear(), (dtTmp.getMonth()) + parseInt(NumDay), dtTmp.getDate(), dtTmp.getHours(), dtTmp.getMinutes(), dtTmp.getSeconds());
+                dtTmp = new Date(dtTmp.getFullYear(), (dtTmp.getMonth()) + NumDay, dtTmp.getDate(), dtTmp.getHours(), dtTmp.getMinutes(), dtTmp.getSeconds());
                 break;
             case   'y':
                 //alert(dtTmp.getFullYear());
-                dtTmp = new Date(dtTmp.getFullYear() + parseInt(NumDay), dtTmp.getMonth(), dtTmp.getDate(), dtTmp.getHours(), dtTmp.getMinutes(), dtTmp.getSeconds());
+                dtTmp = new Date(dtTmp.getFullYear() + NumDay, dtTmp.getMonth(), dtTmp.getDate(), dtTmp.getHours(), dtTmp.getMinutes(), dtTmp.getSeconds());
                 //alert(dtTmp);
                 break;
         }
@@ -3788,7 +3829,7 @@ define('bui/base',['bui/observable'],function(require){
 
       // fire after event
       if (!opts['silent']) {
-          value = self.getAttrVals()[name];
+          value = self.__attrVals[name];
           __fireAttrChange(self, 'after', name, prevVal, value);
       }
       return self;
@@ -3871,11 +3912,16 @@ define('bui/base',['bui/observable'],function(require){
     var _self = this,
             c = _self.constructor,
             constructors = [];
-
+        this.__attrs = {};
+        this.__attrVals = {};
         Observable.apply(this,arguments);
         // define
         while (c) {
             constructors.push(c);
+            if(c.extensions){ //\u5ef6\u8fdf\u6267\u884cmixin
+              BUI.mixin(c,c.extensions);
+              delete c.extensions;
+            }
             //_self.addAttrs(c['ATTRS']);
             c = c.superclass ? c.superclass.constructor : null;
         }
@@ -3902,14 +3948,36 @@ define('bui/base',['bui/observable'],function(require){
      */
     addAttr: function (name, attrConfig,overrides) {
             var _self = this,
-                attrs = _self.getAttrs(),
-                cfg = BUI.cloneObject(attrConfig);//;//$.clone(attrConfig);
-
-            if (!attrs[name]) {
-                attrs[name] = cfg;
-            } else if(overrides){
-                BUI.mix(true,attrs[name], cfg);
+                attrs = _self.__attrs,
+                attr = attrs[name];
+                //;//$.clone(attrConfig);
+            /**/
+            if(!attr){
+              attr = attrs[name] = {};
             }
+            for (var p in attrConfig) {
+              if(attrConfig.hasOwnProperty(p)){
+                if(p == 'value'){
+                  if(BUI.isObject(attrConfig[p])){
+                    attr[p] = attr[p] || {};
+                    BUI.mix(true,attr[p], attrConfig[p]); 
+                  }else if(BUI.isArray(attrConfig[p])){
+                    attr[p] = attr[p] || [];
+                    BUI.mix(true,attr[p], attrConfig[p]); 
+                  }else{
+                    attr[p] = attrConfig[p];
+                  }
+                }else{
+                  attr[p] = attrConfig[p];
+                }
+              }
+
+            };
+            /*if (!attrs[name]) {
+                attrs[name] = BUI.cloneObject(attrConfig);
+            } else if(overrides){
+                BUI.mix(true,attrs[name], attrConfig);
+            }*/
             return _self;
     },
     /**
@@ -3944,7 +4012,7 @@ define('bui/base',['bui/observable'],function(require){
      * @return {Boolean} \u662f\u5426\u5305\u542b
      */
     hasAttr : function(name){
-      return name && this.getAttrs().hasOwnProperty(name);
+      return name && this.__attrs.hasOwnProperty(name);
     },
     /**
      * \u83b7\u53d6\u9ed8\u8ba4\u7684\u5c5e\u6027\u503c
@@ -3952,7 +4020,7 @@ define('bui/base',['bui/observable'],function(require){
      * @return {Object} \u5c5e\u6027\u503c\u7684\u952e\u503c\u5bf9
      */
     getAttrs : function(){
-       return ensureNonEmpty(this, '__attrs', true);
+       return this.__attrs;//ensureNonEmpty(this, '__attrs', true);
     },
     /**
      * \u83b7\u53d6\u5c5e\u6027\u540d/\u5c5e\u6027\u503c\u952e\u503c\u5bf9
@@ -3960,7 +4028,7 @@ define('bui/base',['bui/observable'],function(require){
      * @return {Object} \u5c5e\u6027\u5bf9\u8c61
      */
     getAttrVals: function(){
-      return ensureNonEmpty(this, '__attrVals', true);
+      return this.__attrVals; //ensureNonEmpty(this, '__attrVals', true);
     },
     /**
      * \u83b7\u53d6\u5c5e\u6027\u503c\uff0c\u6240\u6709\u7684\u914d\u7f6e\u9879\u548c\u5c5e\u6027\u90fd\u53ef\u4ee5\u901a\u8fc7get\u65b9\u6cd5\u83b7\u53d6
@@ -3996,13 +4064,13 @@ define('bui/base',['bui/observable'],function(require){
      */
     get : function(name){
       var _self = this,
-                declared = _self.hasAttr(name),
-                attrVals = _self.getAttrVals(),
+                //declared = _self.hasAttr(name),
+                attrVals = _self.__attrVals,
                 attrConfig,
                 getter, 
                 ret;
 
-            attrConfig = ensureNonEmpty(_self.getAttrs(), name);
+            attrConfig = ensureNonEmpty(_self.__attrs, name);
             getter = attrConfig['getter'];
 
             // get user-set value or default value
@@ -4033,8 +4101,8 @@ define('bui/base',['bui/observable'],function(require){
         var _self = this;
 
         if (_self.hasAttr(name)) {
-            delete _self.getAttrs()[name];
-            delete _self.getAttrVals()[name];
+            delete _self.__attrs[name];
+            delete _self.__attrVals[name];
         }
 
         return _self;
@@ -4088,7 +4156,7 @@ define('bui/base',['bui/observable'],function(require){
     //\u83b7\u53d6\u5c5e\u6027\u9ed8\u8ba4\u503c
     _getDefAttrVal : function(name){
       var _self = this,
-        attrs = _self.getAttrs(),
+        attrs = _self.__attrs,
               attrConfig = ensureNonEmpty(attrs, name),
               valFn = attrConfig.valueFn,
               val;
@@ -4112,7 +4180,7 @@ define('bui/base',['bui/observable'],function(require){
             // then register on demand in order to collect all data meta info
             // \u4e00\u5b9a\u8981\u6ce8\u518c\u5c5e\u6027\u5143\u6570\u636e\uff0c\u5426\u5219\u5176\u4ed6\u6a21\u5757\u901a\u8fc7 _attrs \u4e0d\u80fd\u679a\u4e3e\u5230\u6240\u6709\u6709\u6548\u5c5e\u6027
             // \u56e0\u4e3a\u5c5e\u6027\u5728\u58f0\u660e\u6ce8\u518c\u524d\u53ef\u4ee5\u76f4\u63a5\u8bbe\u7f6e\u503c
-                attrConfig = ensureNonEmpty(_self.getAttrs(), name, true),
+                attrConfig = ensureNonEmpty(_self.__attrs, name, true),
                 setter = attrConfig['setter'];
 
             // if setter has effect
@@ -4129,7 +4197,7 @@ define('bui/base',['bui/observable'],function(require){
             }
             
             // finally set
-            _self.getAttrVals()[name] = value;
+            _self.__attrVals[name] = value;
     },
     //\u521d\u59cb\u5316\u5c5e\u6027
     _initAttrs : function(config){
@@ -4845,6 +4913,24 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
         return _self;
     } 
   });
+    
+  //\u5ef6\u65f6\u5904\u7406\u6784\u9020\u51fd\u6570
+  function initConstuctor(c){
+    var constructors = [];
+    while(c.base){
+        constructors.push(c);
+        c = c.base;
+    }
+    for(var i = constructors.length - 1; i >=0 ; i--){
+        var C = constructors[i];
+        //BUI.extend(C,C.base,C.px,C.sx);
+        BUI.mix(C.prototype,C.px);
+        BUI.mix(C,C.sx);
+        C.base = null;
+        C.px = null;
+        C.sx = null;
+    }
+  }
   
   BUI.mix(UIBase,
     {
@@ -4865,11 +4951,22 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
           }
 
           function C() {
-              UIBase.apply(this, arguments);
+            var c = this.constructor;
+            if(c.base){
+                initConstuctor(c);
+            }
+            UIBase.apply(this, arguments);
           }
 
-          BUI.extend(C, base, px, sx);
-          BUI.mixin(C,extensions);
+          BUI.extend(C, base);  //\u65e0\u6cd5\u5ef6\u8fdf
+          C.base = base;
+          C.px = px;//\u5ef6\u8fdf\u590d\u5236\u539f\u578b\u94fe\u4e0a\u7684\u51fd\u6570
+          C.sx = sx;//\u5ef6\u8fdf\u590d\u5236\u9759\u6001\u5c5e\u6027
+
+          //BUI.mixin(C,extensions);
+          if(extensions.length){ //\u5ef6\u8fdf\u6267\u884cmixin
+            C.extensions = extensions;
+          }
          
           return C;
     },
@@ -14304,7 +14401,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
 
       _self._sortData(field,direction);
 
-      _self.fire('localsort');
+      _self.fire('localsort',{field:field,direction:direction});
     },
     _sortData : function(field,direction,data){
       var _self = this;
@@ -15723,6 +15820,9 @@ define('bui/list/domlist',['bui/common'],function (require) {
         itemContainer = _self.get('view').getItemContainer();
 
       itemContainer.delegate('.'+itemCls,'click',function(ev){
+        if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
+          return;
+        }
         var itemEl = $(ev.currentTarget),
           item = _self.getItemByElement(itemEl);
         if(_self.isItemDisabled(item,itemEl)){ //\u7981\u7528\u72b6\u6001\u4e0b\u963b\u6b62\u9009\u4e2d
@@ -15735,6 +15835,9 @@ define('bui/list/domlist',['bui/common'],function (require) {
       });
       if(selectedEvent !== 'click'){ //\u5982\u679c\u9009\u4e2d\u4e8b\u4ef6\u4e0d\u7b49\u4e8eclick\uff0c\u5219\u8fdb\u884c\u76d1\u542c\u9009\u4e2d
         itemContainer.delegate('.'+itemCls,selectedEvent,function(ev){
+          if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
+            return;
+          }
           var itemEl = $(ev.currentTarget),
             item = _self.getItemByElement(itemEl);
           if(_self.isItemDisabled(item,itemEl)){ //\u7981\u7528\u72b6\u6001\u4e0b\u963b\u6b62\u9009\u4e2d
@@ -15748,6 +15851,9 @@ define('bui/list/domlist',['bui/common'],function (require) {
       }
 
       itemContainer.delegate('.' + itemCls,'dblclick',function(ev){
+        if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
+          return;
+        }
         var itemEl = $(ev.currentTarget),
           item = _self.getItemByElement(itemEl);
         if(_self.isItemDisabled(item,itemEl)){ //\u7981\u7528\u72b6\u6001\u4e0b\u963b\u6b62\u9009\u4e2d
@@ -16435,11 +16541,91 @@ define('bui/list/keynav',function () {
 
   return KeyNav;
 });/**
+ * @fileOverview \u5217\u8868\u6392\u5e8f
+ * @ignore
+ */
+
+define('bui/list/sortable',['bui/common','bui/data'],function (require) {
+
+  var BUI = require('bui/common'),
+    DataSortable = require('bui/data').Sortable;
+
+  /**
+   * @class BUI.List.Sortable
+   * \u5217\u8868\u6392\u5e8f\u7684\u6269\u5c55
+   * @extends BUI.Data.Sortable
+   */
+  var Sortable = function(){
+
+  };
+
+
+
+  Sortable.ATTRS = BUI.merge(true,DataSortable.ATTRS, {
+
+  });
+
+  BUI.augment(Sortable,DataSortable,{
+    
+    /**
+     * @protected
+     * @override
+     * @ignore
+     * \u8986\u5199\u6bd4\u8f83\u65b9\u6cd5
+     */
+    compare : function(obj1,obj2,field,direction){
+      var _self = this,
+        dir;
+      field = field || _self.get('sortField');
+      direction = direction || _self.get('sortDirection');
+      //\u5982\u679c\u672a\u6307\u5b9a\u6392\u5e8f\u5b57\u6bb5\uff0c\u6216\u65b9\u5411\uff0c\u5219\u6309\u7167\u9ed8\u8ba4\u987a\u5e8f
+      if(!field || !direction){
+        return 1;
+      }
+      dir = direction === 'ASC' ? 1 : -1;
+      if(!$.isPlainObject(obj1)){
+        obj1 = _self.getItemByElement(obj1);
+      }
+      if(!$.isPlainObject(obj2)){
+        obj2 = _self.getItemByElement(obj2);
+      }
+
+      return _self.get('compareFunction')(obj1[field],obj2[field]) * dir;
+    },
+    /**
+     * \u83b7\u53d6\u6392\u5e8f\u7684\u96c6\u5408
+     * @protected
+     * @return {Array} \u6392\u5e8f\u96c6\u5408
+     */
+    getSortData : function(){
+      return this.get('view').getAllElements();
+    },
+    /**
+     * \u5217\u8868\u6392\u5e8f
+     * @param  {string} field  \u5b57\u6bb5\u540d
+     * @param  {string} direction \u6392\u5e8f\u65b9\u5411 ASC,DESC
+     */
+    sort : function(field,direction){
+      var _self = this,
+        sortedElements = _self.sortData(field,direction),
+        itemContainer = _self.get('view').getItemContainer();
+      if(!_self.get('store')){
+        _self.sortData(field,direction,_self.get('items'));
+      }
+      BUI.each(sortedElements,function(el){
+        $(el).appendTo(itemContainer);
+      });
+    }
+
+  });
+
+  return Sortable;
+});/**
  * @fileOverview \u7b80\u5355\u5217\u8868\uff0c\u76f4\u63a5\u4f7f\u7528DOM\u4f5c\u4e3a\u5217\u8868\u9879
  * @ignore
  */
 
-define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav'],function (require) {
+define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav','bui/list/sortable'],function (require) {
 
   /**
    * @name BUI.List
@@ -16450,6 +16636,7 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
     UIBase = BUI.Component.UIBase,
     DomList = require('bui/list/domlist'),
     KeyNav = require('bui/list/keynav'),
+    Sortable = require('bui/list/sortable'),
     CLS_ITEM = BUI.prefix + 'list-item';
   
   /**
@@ -16517,7 +16704,7 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
    * @mixins BUI.List.KeyNav
    * @mixins BUI.Component.UIBase.Bindable
    */
-  var  simpleList = BUI.Component.Controller.extend([DomList,UIBase.Bindable,KeyNav],
+  var  simpleList = BUI.Component.Controller.extend([DomList,UIBase.Bindable,KeyNav,Sortable],
   /**
    * @lends BUI.List.SimpleList.prototype
    * @ignore
@@ -16533,6 +16720,9 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
         itemContainer = _self.get('view').getItemContainer();
 
       itemContainer.delegate('.'+itemCls,'mouseover',function(ev){
+        if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
+          return;
+        }
         var element = ev.currentTarget,
           item = _self.getItemByElement(element);
         if(_self.isItemDisabled(ev.item,ev.currentTarget)){ //\u5982\u679c\u7981\u7528
@@ -16545,6 +16735,9 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
           _self.setItemStatus(item,'hover',true,element);
         }
       }).delegate('.'+itemCls,'mouseout',function(ev){
+        if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
+          return;
+        }
         var sender = $(ev.currentTarget);
         _self.get('view').setElementHover(sender,false);
       });
@@ -16555,8 +16748,14 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
      */
     onAdd : function(e){
       var _self = this,
+        store = _self.get('store'),
         item = e.record;
-      _self.addItemToView(item,e.index);
+      if(_self.getCount() == 0){ //\u521d\u59cb\u4e3a\u7a7a\u65f6\uff0c\u5217\u8868\u8ddfStore\u4e0d\u540c\u6b65
+        _self.setItems(store.getResult());
+      }else{
+        _self.addItemToView(item,e.index);
+      }
+      
     },
     /**
      * \u5220\u9664
@@ -16579,7 +16778,8 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav']
     * @protected
     */
     onLocalSort : function(e){
-      this.onLoad(e);
+      //this.onLoad(e);
+      this.sort(e.field ,e.direction);
     },
     /**
      * \u52a0\u8f7d\u6570\u636e
@@ -16920,6 +17120,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
             if(selText != preText){
               $(textField).val(selText);
               isChange = true;
+              $(textField).trigger('change');
             }
           }
           
@@ -16928,6 +17129,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
             if(valueField != preValue){
               $(valueField).val(selValue);
               isChange = true;
+              $(valueField).trigger('change');
             }
           }
           if(isChange){
@@ -16988,6 +17190,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
       onChange : function(selText,selValue,ev){
         var _self = this,
           curTrigger = _self.get('curTrigger');
+        //curTrigger && curTrigger.trigger('change'); //\u89e6\u53d1\u6539\u53d8\u4e8b\u4ef6
         _self.fire('selectedchange',{value : selValue,text : selText,curTrigger : curTrigger});
       },
       /**
@@ -17182,6 +17385,7 @@ define('bui/picker/listpicker',['bui/picker/picker','bui/list'],function (requir
       onChange : function(selText,selValue,ev){
         var _self = this,
           curTrigger = _self.get('curTrigger');
+        //curTrigger && curTrigger.trigger('change'); //\u89e6\u53d1\u6539\u53d8\u4e8b\u4ef6
         _self.fire('selectedchange',{value : selValue,text : selText,curTrigger : curTrigger,item : ev.item});
       },
       /**
@@ -17541,6 +17745,7 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
     renderUI : function(){
       var _self = this,
         control = _self.get('control');
+
       if(!control){
         var controlTpl = _self.get('controlTpl'),
           container = _self.getControlContainer();
@@ -17920,7 +18125,8 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
     //\u7981\u7528\u63a7\u4ef6
     _uiSetDisabled : function(v){
       var _self = this,
-        innerControl = _self.getInnerControl();
+        innerControl = _self.getInnerControl(),
+        children = _self.get('children');
       innerControl.attr('disabled',v);
       if(_self.get('rendered')){
         if(v){//\u63a7\u4ef6\u4e0d\u53ef\u7528\uff0c\u6e05\u9664\u9519\u8bef
@@ -17930,6 +18136,11 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
           _self.valid();
         }
       }
+
+      BUI.each(children,function(child){
+        child.set('disabled',v);
+      });
+
     },
     _uiSetWidth : function(v){
       var _self = this;
@@ -18173,7 +18384,7 @@ define('bui/form/numberfield',['bui/form/basefield'],function (require) {
         allowDecimals = _self.get('allowDecimals');
       value = value.replace(/\,/g,'');
       if(!allowDecimals){
-        return parseInt(value);
+        return parseInt(value,10);
       }
       return parseFloat(parseFloat(value).toFixed(_self.get('decimalPrecision')));
     },
@@ -18322,7 +18533,7 @@ define('bui/form/selectfield',['bui/common','bui/form/basefield'],function (requ
   function resetOptions (select,options,self) {
     select.children().remove();
     var emptyText = self.get('emptyText');
-    if(emptyText){
+    if(emptyText && self.get('showBlank')){
       appendItem('',emptyText,select);
     }
     BUI.each(options,function (option) {
@@ -18429,8 +18640,9 @@ define('bui/form/selectfield',['bui/common','bui/form/basefield'],function (requ
         select = _self.get('select'),
         innerControl = _self.getInnerControl();
       if(innerControl.is('select')){
-        var dom = innerControl[0];
-        return dom.options[dom.selectedIndex].text;
+        var dom = innerControl[0],
+          item = dom.options[dom.selectedIndex];
+        return item ? item.text : '';
       }else{
         return select.getSelectedText();
       }
@@ -18561,12 +18773,12 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
     bindUI : function(){
       var _self = this,
         datePicker = _self.get('datePicker');
-      datePicker.on('selectedchange',function(ev){
+      /*datePicker.on('selectedchange',function(ev){
         var curTrigger = ev.curTrigger;
         if(curTrigger[0] == _self.getInnerControl()[0]){
           _self.set('value',ev.value);
         }
-      });
+      });*/
     },
     /**
      * \u8bbe\u7f6e\u5b57\u6bb5\u7684\u503c
@@ -20406,7 +20618,7 @@ define('bui/form/group/check',['bui/form/group/base'],function (require) {
       range : {
         setter : function (v) {
           if(BUI.isString(v) || BUI.isNumber(v)){
-            v = [parseInt(v)];
+            v = [parseInt(v,10)];
           }
           return v;
         }
@@ -21081,6 +21293,12 @@ define('bui/form/rule',['bui/common'],function (require) {
 
   //\u662f\u5426\u901a\u8fc7\u9a8c\u8bc1
   function valid(self,value,baseValue,msg,control){
+    if(BUI.isArray(baseValue) && BUI.isString(baseValue[1])){
+      if(baseValue[1]){
+        msg = baseValue[1];
+      }
+      baseValue = baseValue[0];
+    }
     var _self = self,
       validator = _self.get('validator'),
       formatedMsg = formatError(self,baseValue,msg),
@@ -22438,7 +22656,7 @@ define('bui/select/select',['bui/common','bui/picker'],function (require) {
          */
         tpl : {
           view:true,
-          value : '<input type="text" readonly="readonly" class="'+CLS_INPUT+'"/><span class="x-icon x-icon-normal"><span class="x-caret x-caret-down"></span></span>'
+          value : '<input type="text" readonly="readonly" class="'+CLS_INPUT+'"/><span class="x-icon x-icon-normal"><i class="icon icon-caret icon-caret-down"></i></span>'
         },
         /**
          * \u89e6\u53d1\u7684\u4e8b\u4ef6
@@ -27538,7 +27756,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
 
   function getTimeUnit (self,cls){
     var inputEl = self.get('el').find('.' + cls);
-    return parseInt(inputEl.val());
+    return parseInt(inputEl.val(),10);
 
   }
 
@@ -34313,13 +34531,14 @@ define('bui/grid/plugins/dialogediting',['bui/common'],function (require) {
  * @ignore
  */
 
-define('bui/tree',['bui/common','bui/tree/treemixin','bui/tree/treelist'],function (require) {
+define('bui/tree',['bui/common','bui/tree/treemixin','bui/tree/treelist','bui/tree/treemenu'],function (require) {
   var BUI = require('bui/common'),
     Tree = BUI.namespace('Tree');
 
   BUI.mix(Tree,{
     TreeList : require('bui/tree/treelist'),
-    Mixin : require('bui/tree/treemixin')
+    Mixin : require('bui/tree/treemixin'),
+    TreeMenu : require('bui/tree/treemenu')
   });
   return Tree;
 });/**
@@ -34365,6 +34584,7 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
     CLS_EMPTY = CLS_ICON_PREFIX + 'empty',
     CLS_EXPANDER = CLS_ICON_PREFIX + 'expander',
     CLS_CHECKBOX = CLS_ICON + '-checkbox',
+    CLS_RADIO = CLS_ICON + '-radio', 
     CLS_EXPANDER_END = CLS_EXPANDER + '-end',
     Mixin = function(){
 
@@ -34549,6 +34769,13 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
       value : false
     },
     /**
+     * \u662f\u5426\u53ef\u4ee5\u52fe\u9009\u591a\u4e2a\u8282\u70b9
+     * @type {Boolean}
+     */
+    multipleCheck : {
+      value : true
+    },
+    /**
      * @private
      * \u52fe\u9009\u5b57\u6bb5
      * @type {String}
@@ -34557,6 +34784,13 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
       valueFn : function(){
         return this.getStatusField('checked');
       }
+    },
+    /**
+     * \u662f\u5426\u53ef\u4ee5\u52fe\u9009\u7684\u5b57\u6bb5\u540d\u79f0
+     * @type {String}
+     */
+    checkableField : {
+      value : 'checkable'
     },
     /**
      * \u9009\u9879\u5bf9\u8c61\u4e2d\u5c5e\u6027\u4f1a\u76f4\u63a5\u5f71\u54cd\u76f8\u5e94\u7684\u72b6\u6001,\u9ed8\u8ba4\uff1a
@@ -34938,11 +35172,13 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
      */
     setNodeChecked : function(node,checked,deep){
       deep = deep == null ? true : deep;
+
       if(!node){
         return;
       }
       var _self = this,
         parent,
+        multipleCheck = _self.get('multipleCheck'),
         element;
       node = makeSureNode(this,node);
       if(!node){
@@ -34955,26 +35191,46 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
 
       if(_self.isChecked(node) !== checked || _self.hasStatus(node,'checked') !== checked){
 
+        
         element =  _self.findElement(node);
         if(element){
           _self.setItemStatus(node,CHECKED,checked,element); //\u8bbe\u7f6e\u9009\u4e2d\u72b6\u6001
-          _self._resetPatialChecked(node,checked,checked,element); //\u8bbe\u7f6e\u90e8\u5206\u52fe\u9009\u72b6\u6001
+          if(multipleCheck){ //\u591a\u9009\u72b6\u6001\u4e0b\u8bbe\u7f6e\u534a\u9009\u72b6\u6001
+            _self._resetPatialChecked(node,checked,checked,element); //\u8bbe\u7f6e\u90e8\u5206\u52fe\u9009\u72b6\u6001
+          }else{
+            if(checked && parent && _self.isChecked(parent) != checked){
+              _self.setNodeChecked(parent,checked,false);
+            }
+          }/**/
         }else if(!_self.isItemDisabled(node)){
           _self.setStatusValue(node,'checked',checked);
         }
+
         if(parent){ //\u8bbe\u7f6e\u7236\u5143\u7d20\u9009\u4e2d
           if(_self.isChecked(parent) != checked){
             _self._resetParentChecked(parent);
-          }else{
+          }else if(multipleCheck){
             _self._resetPatialChecked(parent,null,null,null,true);
           }
+        }
+
+        //\u5982\u679c\u662f\u5355\u9009\u5219\uff0c\u6e05\u9664\u5144\u5f1f\u5143\u7d20\u7684\u9009\u4e2d
+        if(checked && !multipleCheck && (_self.isChecked(parent) || parent == _self.get('root'))){
+          var nodes = parent.children;
+          BUI.each(nodes,function(slibNode){
+            if(slibNode !== node && _self.isChecked(slibNode)){
+              _self.setNodeChecked(slibNode,false);
+            } 
+          });
         }
         _self.fire('checkedchange',{node : node,element: element,checked : checked});
         
       }
       if(!node.leaf && deep){ //\u6811\u8282\u70b9\uff0c\u52fe\u9009\u6240\u6709\u5b50\u8282\u70b9
-        BUI.each(node.children,function(subNode){
-          _self.setNodeChecked(subNode,checked,deep);
+        BUI.each(node.children,function(subNode,index){
+          if(multipleCheck || !checked || (!multipleCheck && index == 0)){ //\u591a\u9009\u6216\u8005\u5355\u9009\u65f6\u7b2c\u4e00\u4e2a
+            _self.setNodeChecked(subNode,checked,deep);
+          }
         });
       }
     },
@@ -35026,17 +35282,21 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
       var _self = this,
         checkType = _self.get('checkType'),
         checkedField = _self.get('checkedField'),
+        multipleCheck = _self.get('multipleCheck'),
+        checkableField = _self.get('checkableField'),
         parent; 
       if(checkType === MAP_TYPES.NONE){ //\u4e0d\u5141\u8bb8\u9009\u4e2d
-        delete node[checkedField];
+        node[checkableField] = false;
+        node[checkedField] = false;
         return;
       }
 
       if(checkType === MAP_TYPES.ONLY_LEAF){ //\u4ec5\u53f6\u5b50\u8282\u70b9\u53ef\u9009
         if(node.leaf){
-          node[checkedField] = node[checkedField] || false;
+          node[checkableField] = true;
         }else{
-          delete node[checkedField];
+          node[checkableField] = false;
+          node[checkedField] = false;
           if(deep){
             BUI.each(node.children,function(subNode){
               _self._initChecked(subNode,deep);
@@ -35046,20 +35306,31 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         return;
       }
 
+      if(checkType === MAP_TYPES.CUSTOM){ //\u81ea\u5b9a\u4e49\u9009\u4e2d\u65f6\uff0c\u6839\u636e\u8282\u70b9\u4e0a\u662f\u5426\u6709checked\u5224\u65ad
+        if(node[checkableField] == null){
+          node[checkableField] = node[checkedField] != null;
+        }
+        
+      }
+
       if(checkType === MAP_TYPES.ALL){ //\u6240\u6709\u5141\u8bb8\u9009\u4e2d
-        node[checkedField] = node[checkedField] || false;
+        node[checkableField] = true;
       }
 
       if(!node || !_self.isCheckable(node)){ //\u5982\u679c\u4e0d\u53ef\u9009\uff0c\u5219\u4e0d\u5904\u7406\u52fe\u9009
         return;
       }
+
       parent = node.parent;
       if(!_self.isChecked(node)){ //\u8282\u70b9\u672a\u88ab\u9009\u62e9\uff0c\u6839\u636e\u7236\u3001\u5b50\u8282\u70b9\u5904\u7406\u52fe\u9009
+
         if(parent && _self.isChecked(parent)){ //\u5982\u679c\u7236\u8282\u70b9\u9009\u4e2d\uff0c\u5f53\u524d\u8282\u70b9\u5fc5\u987b\u52fe\u9009
-          _self.setStatusValue(node,'checked',true);
+          if(multipleCheck || !_self._hasChildChecked(parent)){ //\u591a\u9009\u6216\u8005\u5144\u5f1f\u8282\u70b9\u6ca1\u6709\u88ab\u9009\u4e2d
+            _self.setStatusValue(node,'checked',true);
+          }
         }
         //\u8282\u70b9\u4e3a\u975e\u53f6\u5b50\u8282\u70b9\uff0c\u540c\u65f6\u53f6\u5b50\u8282\u70b9\u4e0d\u4e3a\u7a7a\u65f6\u6839\u636e\u53f6\u5b50\u8282\u70b9\u63a7\u5236
-        if(node.children && node.children.length && _self._isAllChildrenChecked(node)){
+        if((node.children && node.children.length && _self._isAllChildrenChecked(node)) ||(!multipleCheck && _self._hasChildChecked(node))){
           _self.setStatusValue(node,'checked',true);
         }
       }
@@ -35096,15 +35367,18 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         return;
       }
       var _self = this,
-        allChecked = _self._isAllChildrenChecked(parentNode);
+        multipleCheck = _self.get('multipleCheck'),
+        allChecked = multipleCheck ? _self._isAllChildrenChecked(parentNode) : _self._hasChildChecked(parentNode);
       _self.setStatusValue(parentNode,'checked',allChecked);
       _self.setNodeChecked(parentNode,allChecked,false);
-      _self._resetPatialChecked(parentNode,allChecked,null,null);
+
+      multipleCheck && _self._resetPatialChecked(parentNode,allChecked,null,null);
     },
     //\u7ed1\u5b9a\u4e8b\u4ef6
     __bindUI : function(){
       var _self = this,
-        el = _self.get('el');
+        el = _self.get('el'),
+        multipleCheck = _self.get('multipleCheck');
 
       //\u70b9\u51fb\u9009\u9879
       _self.on('itemclick',function(ev){
@@ -35117,19 +35391,17 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         }else if(sender.hasClass(CLS_CHECKBOX)){
           var checked = _self.isChecked(node);
           _self.setNodeChecked(node,!checked);
+        }else if(sender.hasClass(CLS_RADIO)){
+          _self.setNodeChecked(node,true);
         }
         
       });
-      
-      /*_self.on('beforeselectedchange',function(ev){
-        
-      });
-      */
+
       _self.on('itemrendered',function(ev){
         var node = ev.item,
           element = ev.domTarget;
         _self._resetIcons(node,element);
-        if(_self.isCheckable(node)){
+        if(_self.isCheckable(node) && multipleCheck){
           _self._resetPatialChecked(node,null,null,element);
         }
         if(_self._isExpanded(node,element)){
@@ -35167,6 +35439,12 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         }
       }
       
+    },
+    //\u662f\u5426\u6839\u636e\u5b50\u8282\u70b9\u9009\u4e2d
+    _isForceChecked : function(node){
+      var _self = this,
+        multipleCheck = _self.get('multipleCheck');
+      return multipleCheck ? _self._isAllChildrenChecked() : _isForceChecked();
     },
     //\u662f\u5426\u6240\u6709\u5b50\u8282\u70b9\u88ab\u9009\u4e2d
     _isAllChildrenChecked : function(node){
@@ -35412,9 +35690,11 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
     //\u83b7\u53d6\u52fe\u9009icon
     _getCheckedIcon : function(node){
       var _self = this,
-        checkable = _self.isCheckable(node);
+        checkable = _self.isCheckable(node),
+        cls;
       if(checkable){
-        return _self._getIcon(CLS_CHECKBOX);
+        cls = _self.get('multipleCheck') ? CLS_CHECKBOX : CLS_RADIO;
+        return _self._getIcon(cls);
       }
       return '';
     },
@@ -35425,7 +35705,7 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
      * @return {Boolean}  \u662f\u5426\u53ef\u4ee5\u52fe\u9009
      */
     isCheckable : function(node){
-      return node[this.get('checkedField')] != null;
+      return node[this.get('checkableField')];
     },
     //\u83b7\u53d6\u5c55\u5f00\u6298\u53e0\u7684icon
     _getExpandIcon : function(node){
@@ -35556,15 +35836,7 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
         _self.removeItems(children);
       }
       
-    }/*,
-    _slideUpNodes : function(elements,callback){
-      var wrapEl = $('<div></div>').insertBefore(elements[0]);
-      $(elements).appendTo(wrapEl);
-      wrapEl.slideUp(function(){
-        callback();
-        wrapEl.remove();
-      });
-    }*/,
+    },
     _collapseChildren : function(parentNode,deep){
       var _self = this,
         children = parentNode.children;
@@ -35798,7 +36070,7 @@ define('bui/tree/treelist',['bui/common','bui/list','bui/tree/treemixin'],functi
         value : BUI.prefix + 'tree-item'
       },
       itemTpl : {
-        value : '<li class="{cls}">{text}</li>'
+        value : '<li>{text}</li>'
       },
       idField : {
         value : 'id'
@@ -35812,6 +36084,129 @@ define('bui/tree/treelist',['bui/common','bui/list','bui/tree/treemixin'],functi
 });
 
 /**
+ * @fileOverview \u6811\u5f62\u83dc\u5355
+ * @ignore
+ */
+
+define('bui/tree/treemenu',['bui/common','bui/list','bui/tree/treemixin'],function (require) {
+  var BUI = require('bui/common'),
+    List = require('bui/list'),
+    Mixin = require('bui/tree/treemixin');
+
+  var TreeMenuView = List.SimpleList.View.extend({
+    //\u8986\u5199\u83b7\u53d6\u6a21\u677f\u65b9\u6cd5
+    getItemTpl : function  (item,index) {
+      var _self = this,
+        render = _self.get('itemTplRender'),
+        itemTpl = item.leaf ? _self.get('leafTpl') : _self.get('dirTpl');  
+      if(render){
+        return render(item,index);
+      }
+      
+      return BUI.substitute(itemTpl,item);
+    }
+  },{
+    xclass : 'tree-menu-view'
+  });
+
+  /**
+   * @class BUI.Tree.Menu
+   * \u6811\u5f62\u5217\u8868\u63a7\u4ef6
+   * ** \u4f60\u53ef\u4ee5\u7b80\u5355\u7684\u4f7f\u7528\u914d\u7f6e\u6570\u636e **
+   * <pre><code>
+   *  BUI.use('bui/tree',function(Tree){
+   *    var tree = new Tree.Menu({
+   *      render : '#t1',
+   *      nodes : [
+   *        {id : '1',text : '1',children : [{id : '11',text : '11'}]},
+   *        {id : '2',text : '2'}
+   *      ]
+   *    });
+   *    tree.render();
+   *  });
+   * </code></pre>
+   *
+   * ** \u4f60\u8fd8\u53ef\u4ee5\u66ff\u6362icon ** 
+   * <pre><code>
+   *  BUI.use('bui/tree',function(Tree){
+   *    var tree = new Tree.Menu({
+   *      render : '#t1',
+   *      dirCls : 'folder', //\u66ff\u6362\u6811\u8282\u70b9\u7684\u6837\u5f0f
+   *      leafCls : 'file', //\u53f6\u5b50\u8282\u70b9\u7684\u6837\u5f0f
+   *      nodes : [ //\u6570\u636e\u4e2d\u5b58\u5728cls \u4f1a\u66ff\u6362\u8282\u70b9\u7684\u56fe\u6807\u6837\u5f0f
+   *        {id : '1',text : '1'cls:'task-folder',children : [{id : '11',text : '11',cls:'task'}]},
+   *        {id : '2',text : '2'}
+   *      ]
+   *    });
+   *    tree.render();
+   *  });
+   * @mixin BUI.Tree.Mixin
+   * @extends BUI.List.SimpleList
+   */
+  var TreeMenu = List.SimpleList.extend([Mixin],{
+    
+  },{
+    ATTRS : {
+      itemCls : {
+        value : BUI.prefix + 'tree-item'
+      },
+      /**
+       * \u6587\u4ef6\u5939\u662f\u5426\u53ef\u9009\uff0c\u7528\u4e8e\u9009\u62e9\u8282\u70b9\u65f6\uff0c\u907f\u514d\u9009\u4e2d\u975e\u53f6\u5b50\u8282\u70b9
+       * @cfg {Boolean} [dirSelectable = false]
+       */
+      dirSelectable  : {
+        value : false
+      },
+      /**
+       * \u8282\u70b9\u5c55\u5f00\u7684\u4e8b\u4ef6
+       * @type {String}
+       */
+      expandEvent : {
+        value : 'itemclick'
+      },
+
+      itemStatusFields  : {
+        value : {
+          selected : 'selected'
+        }
+      },
+      /**
+       * \u8282\u70b9\u6298\u53e0\u7684\u4e8b\u4ef6
+       * @type {String}
+       */
+      collapseEvent : {
+        value : 'itemclick'
+      },
+      /**/xview : {
+        value : TreeMenuView
+      },
+      /**
+       * \u975e\u53f6\u5b50\u8282\u70b9\u7684\u6a21\u677f
+       * @type {String}
+       */
+      dirTpl : {
+        view : true,
+        value : '<li class="{cls}"><a href="#">{text}</a></li>'
+      },
+      /**
+       * \u53f6\u5b50\u8282\u70b9\u7684\u6a21\u677f
+       * @type {String}
+       */
+      leafTpl : {
+        view : true,
+        value : '<li class="{cls}"><a href="{href}">{text}</a></li>'
+      },
+      idField : {
+        value : 'id'
+      }
+    }
+  },{
+    xclass : 'tree-menu'
+  });
+
+  TreeMenu.View = TreeMenuView;
+  return TreeMenu;
+});/**
  * @fileOverview \u63d0\u793a\u7684\u5165\u53e3\u6587\u4ef6
  * @ignore
  */
@@ -36235,8 +36630,16 @@ define('bui/tooltip/tips',['bui/common','bui/tooltip/tip'],function(require) {
   });
 
   return Tips;
-});BUI.use(['bui/common','bui/data','bui/list','bui/picker',
-  'bui/menu','bui/toolbar','bui/progressbar','bui/cookie',
-  'bui/form','bui/mask','bui/select','bui/tab',
-  'bui/calendar','bui/overlay','bui/editor','bui/grid','bui/tree','bui/tooltip'
-]);
+});(function () {
+  var scripts = document.getElementsByTagName('script'),
+    loaderScript = scripts[scripts.length - 1];
+  if(loaderScript.getAttribute('data-auto-use') == 'false'){
+    return;
+  }
+  BUI.use(['bui/common','bui/data','bui/list','bui/picker',
+    'bui/menu','bui/toolbar','bui/progressbar','bui/cookie',
+    'bui/form','bui/mask','bui/select','bui/tab',
+    'bui/calendar','bui/overlay','bui/editor','bui/grid','bui/tree','bui/tooltip'
+  ]);
+})();
+

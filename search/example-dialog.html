@@ -137,12 +137,12 @@
             /**/
             var editor = this,
               record = editing.get('record'), // 获取编辑的记录
-              data = editor.getValue(); //编辑完成的记录
+              data = editor.get('form').serializeToObject(); //编辑完成的记录
             editor.valid();
             if(editor.isValid()){
               submit(BUI.mix(record,data),editor);
             }
-            /*var form = $('#J_Form'); //也可以直接使用表单同步提交的方式
+            /*var form = editor.get('form'); //也可以直接使用表单同步提交的方式
             form.submit();
             */
           }
