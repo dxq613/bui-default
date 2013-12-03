@@ -1,1533 +1,967 @@
 /**
- * @preserve SeaJS - A Module Loader for the Web
- * v1.3.0 | seajs.org | MIT Licensed
+ * Sea.js 2.1.1 | seajs.org/LICENSE.md
  */
+(function(global, undefined) {
 
-
-/**
- * Base namespace for the framework.
- */
-this.seajs = { _seajs: this.seajs }
-
-
-/**
- * The version of the framework. It will be replaced with "major.minor.patch"
- * when building.
- */
-seajs.version = '1.3.0'
-
-
-/**
- * The private utilities. Internal use only.
- */
-seajs._util = {}
-
-
-/**
- * The private configuration data. Internal use only.
- */
-seajs._config = {
-
-  /**
-   * Debug mode. It will be turned off automatically when compressing.
-   */
-  debug: '%DEBUG%',
-
-  /**
-   * Modules that are needed to load before all other modules.
-   */
-  preload: []
+// Avoid conflicting when `sea.js` is loaded multiple times
+if (global.seajs) {
+  return
 }
 
-/**
- * The minimal language enhancement
- */
-;(function(util) {
+var seajs = global.seajs = {
+  // The current version of Sea.js being used
+  version: "2.1.1"
+}
 
-  var toString = Object.prototype.toString
-  var AP = Array.prototype
-
-
-  util.isString = function(val) {
-    return toString.call(val) === '[object String]'
-  }
-
-
-  util.isFunction = function(val) {
-    return toString.call(val) === '[object Function]'
-  }
-
-
-  util.isRegExp = function(val) {
-    return toString.call(val) === '[object RegExp]'
-  }
-
-
-  util.isObject = function(val) {
-    return val === Object(val)
-  }
-
-
-  util.isArray = Array.isArray || function(val) {
-    return toString.call(val) === '[object Array]'
-  }
-
-
-  util.indexOf = AP.indexOf ?
-      function(arr, item) {
-        return arr.indexOf(item)
-      } :
-      function(arr, item) {
-        for (var i = 0; i < arr.length; i++) {
-          if (arr[i] === item) {
-            return i
-          }
-        }
-        return -1
-      }
-
-
-  var forEach = util.forEach = AP.forEach ?
-      function(arr, fn) {
-        arr.forEach(fn)
-      } :
-      function(arr, fn) {
-        for (var i = 0; i < arr.length; i++) {
-          fn(arr[i], i, arr)
-        }
-      }
-
-
-  util.map = AP.map ?
-      function(arr, fn) {
-        return arr.map(fn)
-      } :
-      function(arr, fn) {
-        var ret = []
-        forEach(arr, function(item, i, arr) {
-          ret.push(fn(item, i, arr))
-        })
-        return ret
-      }
-
-
-  util.filter = AP.filter ?
-      function(arr, fn) {
-        return arr.filter(fn)
-      } :
-      function(arr, fn) {
-        var ret = []
-        forEach(arr, function(item, i, arr) {
-          if (fn(item, i, arr)) {
-            ret.push(item)
-          }
-        })
-        return ret
-      }
-
-
-  var keys = util.keys = Object.keys || function(o) {
-    var ret = []
-
-    for (var p in o) {
-      if (o.hasOwnProperty(p)) {
-        ret.push(p)
-      }
-    }
-
-    return ret
-  }
-
-
-  util.unique = function(arr) {
-    var o = {}
-
-    forEach(arr, function(item) {
-      o[item] = 1
-    })
-
-    return keys(o)
-  }
-
-
-  util.now = Date.now || function() {
-    return new Date().getTime()
-  }
-
-})(seajs._util)
+var data = seajs.data = {}
 
 /**
- * The tiny console
+ * util-lang.js - The minimal language enhancement
  */
-;(function(util) {
 
-  /**
-   * The safe wrapper of console.log/error/...
-   */
-  util.log = function() {
-    if (typeof console === 'undefined') return
+function isType(type) {
+  return function(obj) {
+    return Object.prototype.toString.call(obj) === "[object " + type + "]"
+  }
+}
 
-    var args = Array.prototype.slice.call(arguments)
+var isObject = isType("Object")
+var isString = isType("String")
+var isArray = Array.isArray || isType("Array")
+var isFunction = isType("Function")
 
-    var type = 'log'
-    var last = args[args.length - 1]
-    console[last] && (type = args.pop())
+var _cid = 0
+function cid() {
+  return _cid++
+}
 
-    // Only show log info in debug mode
-    if (type === 'log' && !seajs.debug) return
 
-    if (console[type].apply) {
-      console[type].apply(console, args)
-      return
-    }
+/**
+ * util-events.js - The minimal events support
+ */
 
-    // See issue#349
-    var length = args.length
-    if (length === 1) {
-      console[type](args[0])
-    }
-    else if (length === 2) {
-      console[type](args[0], args[1])
-    }
-    else if (length === 3) {
-      console[type](args[0], args[1], args[2])
+var events = data.events = {}
+
+// Bind event
+seajs.on = function(name, callback) {
+  var list = events[name] || (events[name] = [])
+  list.push(callback)
+  return seajs
+}
+
+// Remove event. If `callback` is undefined, remove all callbacks for the
+// event. If `event` and `callback` are both undefined, remove all callbacks
+// for all events
+seajs.off = function(name, callback) {
+  // Remove *all* events
+  if (!(name || callback)) {
+    events = data.events = {}
+    return seajs
+  }
+
+  var list = events[name]
+  if (list) {
+    if (callback) {
+      for (var i = list.length - 1; i >= 0; i--) {
+        if (list[i] === callback) {
+          list.splice(i, 1)
+        }
+      }
     }
     else {
-      console[type](args.join(' '))
+      delete events[name]
     }
   }
 
-})(seajs._util)
+  return seajs
+}
+
+// Emit event, firing all bound callbacks. Callbacks receive the same
+// arguments as `emit` does, apart from the event name
+var emit = seajs.emit = function(name, data) {
+  var list = events[name], fn
+
+  if (list) {
+    // Copy callback lists to prevent modification
+    list = list.slice()
+
+    // Execute event callbacks
+    while ((fn = list.shift())) {
+      fn(data)
+    }
+  }
+
+  return seajs
+}
+
 
 /**
- * Path utilities
+ * util-path.js - The utilities for operating path such as id, uri
  */
-;(function(util, config, global) {
 
-  var DIRNAME_RE = /.*(?=\/.*$)/
-  var MULTIPLE_SLASH_RE = /([^:\/])\/\/+/g
-  var FILE_EXT_RE = /\.(?:css|js)$/
-  var ROOT_RE = /^(.*?\w)(?:\/|$)/
+var DIRNAME_RE = /[^?#]*\//
 
+var DOT_RE = /\/\.\//g
+var DOUBLE_DOT_RE = /\/[^/]+\/\.\.\//
 
-  /**
-   * Extracts the directory portion of a path.
-   * dirname('a/b/c.js') ==> 'a/b/'
-   * dirname('d.js') ==> './'
-   * @see http://jsperf.com/regex-vs-split/2
-   */
-  function dirname(path) {
-    var s = path.match(DIRNAME_RE)
-    return (s ? s[0] : '.') + '/'
+// Extract the directory portion of a path
+// dirname("a/b/c.js?t=123#xx/zz") ==> "a/b/"
+// ref: http://jsperf.com/regex-vs-split/2
+function dirname(path) {
+  return path.match(DIRNAME_RE)[0]
+}
+
+// Canonicalize a path
+// realpath("http://test.com/a//./b/../c") ==> "http://test.com/a/c"
+function realpath(path) {
+  // /a/b/./c/./d ==> /a/b/c/d
+  path = path.replace(DOT_RE, "/")
+
+  // a/b/c/../../d  ==>  a/b/../d  ==>  a/d
+  while (path.match(DOUBLE_DOT_RE)) {
+    path = path.replace(DOUBLE_DOT_RE, "/")
   }
 
+  return path
+}
 
-  /**
-   * Canonicalizes a path.
-   * realpath('./a//b/../c') ==> 'a/c'
-   */
-  function realpath(path) {
-    MULTIPLE_SLASH_RE.lastIndex = 0
+// Normalize an id
+// normalize("path/to/a") ==> "path/to/a.js"
+// NOTICE: substring is faster than negative slice and RegExp
+function normalize(path) {
+  var last = path.length - 1
+  var lastC = path.charAt(last)
 
-    // 'file:///a//b/c' ==> 'file:///a/b/c'
-    // 'http://a//b/c' ==> 'http://a/b/c'
-    if (MULTIPLE_SLASH_RE.test(path)) {
-      path = path.replace(MULTIPLE_SLASH_RE, '$1\/')
-    }
-
-    // 'a/b/c', just return.
-    if (path.indexOf('.') === -1) {
-      return path
-    }
-
-    var original = path.split('/')
-    var ret = [], part
-
-    for (var i = 0; i < original.length; i++) {
-      part = original[i]
-
-      if (part === '..') {
-        if (ret.length === 0) {
-          throw new Error('The path is invalid: ' + path)
-        }
-        ret.pop()
-      }
-      else if (part !== '.') {
-        ret.push(part)
-      }
-    }
-
-    return ret.join('/')
+  // If the uri ends with `#`, just return it without '#'
+  if (lastC === "#") {
+    return path.substring(0, last)
   }
 
+  return (path.substring(last - 2) === ".js" ||
+      path.indexOf("?") > 0 ||
+      path.substring(last - 3) === ".css" ||
+      lastC === "/") ? path : path + ".js"
+}
 
-  /**
-   * Normalizes an uri.
-   */
-  function normalize(uri) {
-    uri = realpath(uri)
-    var lastChar = uri.charAt(uri.length - 1)
 
-    if (lastChar === '/') {
-      return uri
-    }
+var PATHS_RE = /^([^/:]+)(\/.+)$/
+var VARS_RE = /{([^{]+)}/g
 
-    // Adds the default '.js' extension except that the uri ends with #.
-    // ref: http://jsperf.com/get-the-last-character
-    if (lastChar === '#') {
-      uri = uri.slice(0, -1)
-    }
-    else if (uri.indexOf('?') === -1 && !FILE_EXT_RE.test(uri)) {
-      uri += '.js'
-    }
+function parseAlias(id) {
+  var alias = data.alias
+  return alias && isString(alias[id]) ? alias[id] : id
+}
 
-    // Remove ':80/' for bug in IE
-    if (uri.indexOf(':80/') > 0) {
-      uri = uri.replace(':80/', '/')
-    }
+function parsePaths(id) {
+  var paths = data.paths
+  var m
 
-    return uri
+  if (paths && (m = id.match(PATHS_RE)) && isString(paths[m[1]])) {
+    id = paths[m[1]] + m[2]
   }
 
+  return id
+}
 
-  /**
-   * Parses alias in the module id. Only parse the first part.
-   */
-  function parseAlias(id) {
-    // #xxx means xxx is already alias-parsed.
-    if (id.charAt(0) === '#') {
-      return id.substring(1)
-    }
+function parseVars(id) {
+  var vars = data.vars
 
-    var alias = config.alias
-
-    // Only top-level id needs to parse alias.
-    if (alias && isTopLevel(id)) {
-      var parts = id.split('/')
-      var first = parts[0]
-
-      if (alias.hasOwnProperty(first)) {
-        parts[0] = alias[first]
-        id = parts.join('/')
-      }
-    }
-
-    return id
+  if (vars && id.indexOf("{") > -1) {
+    id = id.replace(VARS_RE, function(m, key) {
+      return isString(vars[key]) ? vars[key] : m
+    })
   }
 
+  return id
+}
 
-  var mapCache = {}
+function parseMap(uri) {
+  var map = data.map
+  var ret = uri
 
-  /**
-   * Converts the uri according to the map rules.
-   */
-  function parseMap(uri) {
-    // map: [[match, replace], ...]
-    var map = config.map || []
-    if (!map.length) return uri
-
-    var ret = uri
-
-    // Apply all matched rules in sequence.
-    for (var i = 0; i < map.length; i++) {
+  if (map) {
+    for (var i = 0, len = map.length; i < len; i++) {
       var rule = map[i]
 
-      if (util.isArray(rule) && rule.length === 2) {
-        var m = rule[0]
+      ret = isFunction(rule) ?
+          (rule(uri) || uri) :
+          uri.replace(rule[0], rule[1])
 
-        if (util.isString(m) && ret.indexOf(m) > -1 ||
-            util.isRegExp(m) && m.test(ret)) {
-          ret = ret.replace(m, rule[1])
-        }
-      }
-      else if (util.isFunction(rule)) {
-        ret = rule(ret)
-      }
+      // Only apply the first matched rule
+      if (ret !== uri) break
     }
-
-    if (!isAbsolute(ret)) {
-      ret = realpath(dirname(pageUri) + ret)
-    }
-
-    if (ret !== uri) {
-      mapCache[ret] = uri
-    }
-
-    return ret
   }
 
+  return ret
+}
 
-  /**
-   * Gets the original uri.
-   */
-  function unParseMap(uri) {
-    return mapCache[uri] || uri
+
+var ABSOLUTE_RE = /^\/\/.|:\//
+var ROOT_DIR_RE = /^.*?\/\/.*?\//
+
+function addBase(id, refUri) {
+  var ret
+  var first = id.charAt(0)
+
+  // Absolute
+  if (ABSOLUTE_RE.test(id)) {
+    ret = id
+  }
+  // Relative
+  else if (first === ".") {
+    ret = realpath((refUri ? dirname(refUri) : data.cwd) + id)
+  }
+  // Root
+  else if (first === "/") {
+    var m = data.cwd.match(ROOT_DIR_RE)
+    ret = m ? m[0] + id.substring(1) : id
+  }
+  // Top-level
+  else {
+    ret = data.base + id
   }
 
+  return ret
+}
 
-  /**
-   * Converts id to uri.
-   */
-  function id2Uri(id, refUri) {
-    if (!id) return ''
+function id2Uri(id, refUri) {
+  if (!id) return ""
 
-    id = parseAlias(id)
-    refUri || (refUri = pageUri)
+  id = parseAlias(id)
+  id = parsePaths(id)
+  id = parseVars(id)
+  id = normalize(id)
 
-    var ret
+  var uri = addBase(id, refUri)
+  uri = parseMap(uri)
 
-    // absolute id
-    if (isAbsolute(id)) {
-      ret = id
-    }
-    // relative id
-    else if (isRelative(id)) {
-      // Converts './a' to 'a', to avoid unnecessary loop in realpath.
-      if (id.indexOf('./') === 0) {
-        id = id.substring(2)
-      }
-      ret = dirname(refUri) + id
-    }
-    // root id
-    else if (isRoot(id)) {
-      ret = refUri.match(ROOT_RE)[1] + id
-    }
-    // top-level id
-    else {
-      ret = config.base + '/' + id
-    }
-
-    return normalize(ret)
-  }
+  return uri
+}
 
 
-  function isAbsolute(id) {
-    return id.indexOf('://') > 0 || id.indexOf('//') === 0
-  }
+var doc = document
+var loc = location
+var cwd = dirname(loc.href)
+var scripts = doc.getElementsByTagName("script")
 
+// Recommend to add `seajsnode` id for the `sea.js` script element
+var loaderScript = doc.getElementById("seajsnode") ||
+    scripts[scripts.length - 1]
 
-  function isRelative(id) {
-    return id.indexOf('./') === 0 || id.indexOf('../') === 0
-  }
+// When `sea.js` is inline, set loaderDir to current working directory
+var loaderDir = dirname(getScriptAbsoluteSrc(loaderScript) || cwd)
 
+function getScriptAbsoluteSrc(node) {
+  return node.hasAttribute ? // non-IE6/7
+      node.src :
+    // see http://msdn.microsoft.com/en-us/library/ms536429(VS.85).aspx
+      node.getAttribute("src", 4)
+}
 
-  function isRoot(id) {
-    return id.charAt(0) === '/' && id.charAt(1) !== '/'
-  }
-
-
-  function isTopLevel(id) {
-    var c = id.charAt(0)
-    return id.indexOf('://') === -1 && c !== '.' && c !== '/'
-  }
-
-
-  /**
-   * Normalizes pathname to start with '/'
-   * Ref: https://groups.google.com/forum/#!topic/seajs/9R29Inqk1UU
-   */
-  function normalizePathname(pathname) {
-    if (pathname.charAt(0) !== '/') {
-      pathname = '/' + pathname
-    }
-    return pathname
-  }
-
-
-  var loc = global['location']
-  var pageUri = loc.protocol + '//' + loc.host +
-      normalizePathname(loc.pathname)
-
-  // local file in IE: C:\path\to\xx.js
-  if (pageUri.indexOf('\\') > 0) {
-    pageUri = pageUri.replace(/\\/g, '/')
-  }
-
-
-  util.dirname = dirname
-  util.realpath = realpath
-  util.normalize = normalize
-
-  util.parseAlias = parseAlias
-  util.parseMap = parseMap
-  util.unParseMap = unParseMap
-
-  util.id2Uri = id2Uri
-  util.isAbsolute = isAbsolute
-  util.isRoot = isRoot
-  util.isTopLevel = isTopLevel
-
-  util.pageUri = pageUri
-
-})(seajs._util, seajs._config, this)
 
 /**
- * Utilities for fetching js and css files
+ * util-request.js - The utilities for requesting script and style files
+ * ref: tests/research/load-js-css/test.html
  */
-;(function(util, config) {
 
-  var doc = document
-  var head = doc.head ||
-      doc.getElementsByTagName('head')[0] ||
-      doc.documentElement
+var head = doc.getElementsByTagName("head")[0] || doc.documentElement
+var baseElement = head.getElementsByTagName("base")[0]
 
-  var baseElement = head.getElementsByTagName('base')[0]
+var IS_CSS_RE = /\.css(?:\?|$)/i
+var READY_STATE_RE = /^(?:loaded|complete|undefined)$/
 
-  var IS_CSS_RE = /\.css(?:\?|$)/i
-  var READY_STATE_RE = /loaded|complete|undefined/
+var currentlyAddingScript
+var interactiveScript
 
-  var currentlyAddingScript
-  var interactiveScript
+// `onload` event is not supported in WebKit < 535.23 and Firefox < 9.0
+// ref:
+//  - https://bugs.webkit.org/show_activity.cgi?id=38995
+//  - https://bugzilla.mozilla.org/show_bug.cgi?id=185236
+//  - https://developer.mozilla.org/en/HTML/Element/link#Stylesheet_load_events
+var isOldWebKit = (navigator.userAgent
+    .replace(/.*AppleWebKit\/(\d+)\..*/, "$1")) * 1 < 536
 
 
-  util.fetch = function(url, callback, charset) {
-    var isCSS = IS_CSS_RE.test(url)
-    var node = document.createElement(isCSS ? 'link' : 'script')
+function request(url, callback, charset) {
+  var isCSS = IS_CSS_RE.test(url)
+  var node = doc.createElement(isCSS ? "link" : "script")
 
-    if (charset) {
-      var cs = util.isFunction(charset) ? charset(url) : charset
-      cs && (node.charset = cs)
-    }
-
-    assetOnload(node, callback || noop)
-
-    if (isCSS) {
-      node.rel = 'stylesheet'
-      node.href = url
-    } else {
-      node.async = 'async'
-      node.src = url
-    }
-
-    // For some cache cases in IE 6-9, the script executes IMMEDIATELY after
-    // the end of the insertBefore execution, so use `currentlyAddingScript`
-    // to hold current node, for deriving url in `define`.
-    currentlyAddingScript = node
-
-    // ref: #185 & http://dev.jquery.com/ticket/2709
-    baseElement ?
-        head.insertBefore(node, baseElement) :
-        head.appendChild(node)
-
-    currentlyAddingScript = null
-  }
-
-  function assetOnload(node, callback) {
-    if (node.nodeName === 'SCRIPT') {
-      scriptOnload(node, callback)
-    } else {
-      styleOnload(node, callback)
+  if (charset) {
+    var cs = isFunction(charset) ? charset(url) : charset
+    if (cs) {
+      node.charset = cs
     }
   }
 
-  function scriptOnload(node, callback) {
+  addOnload(node, callback, isCSS)
 
-    node.onload = node.onerror = node.onreadystatechange = function() {
-      if (READY_STATE_RE.test(node.readyState)) {
-
-        // Ensure only run once and handle memory leak in IE
-        node.onload = node.onerror = node.onreadystatechange = null
-
-        // Remove the script to reduce memory leak
-        if (node.parentNode && !config.debug) {
-          head.removeChild(node)
-        }
-
-        // Dereference the node
-        node = undefined
-
-        callback()
-      }
-    }
-
+  if (isCSS) {
+    node.rel = "stylesheet"
+    node.href = url
+  }
+  else {
+    node.async = true
+    node.src = url
   }
 
-  function styleOnload(node, callback) {
+  // For some cache cases in IE 6-8, the script executes IMMEDIATELY after
+  // the end of the insert execution, so use `currentlyAddingScript` to
+  // hold current node, for deriving url in `define` call
+  currentlyAddingScript = node
 
-    // for Old WebKit and Old Firefox
-    if (isOldWebKit || isOldFirefox) {
-      util.log('Start poll to fetch css')
+  // ref: #185 & http://dev.jquery.com/ticket/2709
+  baseElement ?
+      head.insertBefore(node, baseElement) :
+      head.appendChild(node)
 
-      setTimeout(function() {
-        poll(node, callback)
-      }, 1) // Begin after node insertion
-    }
-    else {
-      node.onload = node.onerror = function() {
-        node.onload = node.onerror = null
-        node = undefined
-        callback()
-      }
-    }
+  currentlyAddingScript = null
+}
 
-  }
+function addOnload(node, callback, isCSS) {
+  var missingOnload = isCSS && (isOldWebKit || !("onload" in node))
 
-  function poll(node, callback) {
-    var isLoaded
-
-    // for WebKit < 536
-    if (isOldWebKit) {
-      if (node['sheet']) {
-        isLoaded = true
-      }
-    }
-    // for Firefox < 9.0
-    else if (node['sheet']) {
-      try {
-        if (node['sheet'].cssRules) {
-          isLoaded = true
-        }
-      } catch (ex) {
-        // The value of `ex.name` is changed from
-        // 'NS_ERROR_DOM_SECURITY_ERR' to 'SecurityError' since Firefox 13.0
-        // But Firefox is less than 9.0 in here, So it is ok to just rely on
-        // 'NS_ERROR_DOM_SECURITY_ERR'
-        if (ex.name === 'NS_ERROR_DOM_SECURITY_ERR') {
-          isLoaded = true
-        }
-      }
-    }
-
+  // for Old WebKit and Old Firefox
+  if (missingOnload) {
     setTimeout(function() {
-      if (isLoaded) {
-        // Place callback in here due to giving time for style rendering.
-        callback()
-      } else {
-        poll(node, callback)
-      }
-    }, 1)
-  }
-
-  function noop() {
-  }
-
-
-  util.getCurrentScript = function() {
-    if (currentlyAddingScript) {
-      return currentlyAddingScript
-    }
-
-    // For IE6-9 browsers, the script onload event may not fire right
-    // after the the script is evaluated. Kris Zyp found that it
-    // could query the script nodes and the one that is in "interactive"
-    // mode indicates the current script.
-    // Ref: http://goo.gl/JHfFW
-    if (interactiveScript &&
-        interactiveScript.readyState === 'interactive') {
-      return interactiveScript
-    }
-
-    var scripts = head.getElementsByTagName('script')
-
-    for (var i = 0; i < scripts.length; i++) {
-      var script = scripts[i]
-      if (script.readyState === 'interactive') {
-        interactiveScript = script
-        return script
-      }
-    }
-  }
-
-  util.getScriptAbsoluteSrc = function(node) {
-    return node.hasAttribute ? // non-IE6/7
-        node.src :
-        // see http://msdn.microsoft.com/en-us/library/ms536429(VS.85).aspx
-        node.getAttribute('src', 4)
-  }
-
-
-  util.importStyle = function(cssText, id) {
-    // Don't add multi times
-    if (id && doc.getElementById(id)) return
-
-    var element = doc.createElement('style')
-    id && (element.id = id)
-
-    // Adds to DOM first to avoid the css hack invalid
-    head.appendChild(element)
-
-    // IE
-    if (element.styleSheet) {
-      element.styleSheet.cssText = cssText
-    }
-    // W3C
-    else {
-      element.appendChild(doc.createTextNode(cssText))
-    }
-  }
-
-
-  var UA = navigator.userAgent
-
-  // `onload` event is supported in WebKit since 535.23
-  // Ref:
-  //  - https://bugs.webkit.org/show_activity.cgi?id=38995
-  var isOldWebKit = Number(UA.replace(/.*AppleWebKit\/(\d+)\..*/, '$1')) < 536
-
-  // `onload/onerror` event is supported since Firefox 9.0
-  // Ref:
-  //  - https://bugzilla.mozilla.org/show_bug.cgi?id=185236
-  //  - https://developer.mozilla.org/en/HTML/Element/link#Stylesheet_load_events
-  var isOldFirefox = UA.indexOf('Firefox') > 0 &&
-      !('onload' in document.createElement('link'))
-
-
-  /**
-   * References:
-   *  - http://unixpapa.com/js/dyna.html
-   *  - ../test/research/load-js-css/test.html
-   *  - ../test/issues/load-css/test.html
-   *  - http://www.blaze.io/technical/ies-premature-execution-problem/
-   */
-
-})(seajs._util, seajs._config, this)
-
-/**
- * The parser for dependencies
- */
-;(function(util) {
-
-  var REQUIRE_RE = /(?:^|[^.$])\brequire\s*\(\s*(["'])([^"'\s\)]+)\1\s*\)/g
-
-
-  util.parseDependencies = function(code) {
-    // Parse these `requires`:
-    //   var a = require('a');
-    //   someMethod(require('b'));
-    //   require('c');
-    //   ...
-    // Doesn't parse:
-    //   someInstance.require(...);
-    var ret = [], match
-
-    code = removeComments(code)
-    REQUIRE_RE.lastIndex = 0
-
-    while ((match = REQUIRE_RE.exec(code))) {
-      if (match[2]) {
-        ret.push(match[2])
-      }
-    }
-
-    return util.unique(ret)
-  }
-
-  // See: research/remove-comments-safely
-  function removeComments(code) {
-    return code
-        .replace(/^\s*\/\*[\s\S]*?\*\/\s*$/mg, '') // block comments
-        .replace(/^\s*\/\/.*$/mg, '') // line comments
-  }
-
-})(seajs._util)
-
-/**
- * The core of loader
- */
-;(function(seajs, util, config) {
-
-  var cachedModules = {}
-  var cachedModifiers = {}
-  var compileStack = []
-
-  var STATUS = {
-    'FETCHING': 1,  // The module file is fetching now.
-    'FETCHED': 2,   // The module file has been fetched.
-    'SAVED': 3,     // The module info has been saved.
-    'READY': 4,     // All dependencies and self are ready to compile.
-    'COMPILING': 5, // The module is in compiling now.
-    'COMPILED': 6   // The module is compiled and module.exports is available.
-  }
-
-
-  function Module(uri, status) {
-    this.uri = uri
-    this.status = status || 0
-
-    // this.id is set when saving
-    // this.dependencies is set when saving
-    // this.factory is set when saving
-    // this.exports is set when compiling
-    // this.parent is set when compiling
-    // this.require is set when compiling
-  }
-
-
-  Module.prototype._use = function(ids, callback) {
-    util.isString(ids) && (ids = [ids])
-    var uris = resolve(ids, this.uri)
-
-    this._load(uris, function() {
-      // Loads preload files introduced in modules before compiling.
-      preload(function() {
-        var args = util.map(uris, function(uri) {
-          return uri ? cachedModules[uri]._compile() : null
-        })
-
-        if (callback) {
-          callback.apply(null, args)
-        }
-      })
-    })
-  }
-
-
-  Module.prototype._load = function(uris, callback) {
-    var unLoadedUris = util.filter(uris, function(uri) {
-      return uri && (!cachedModules[uri] ||
-          cachedModules[uri].status < STATUS.READY)
-    })
-
-    var length = unLoadedUris.length
-    if (length === 0) {
-      callback()
-      return
-    }
-
-    var remain = length
-
-    for (var i = 0; i < length; i++) {
-      (function(uri) {
-        var module = cachedModules[uri] ||
-            (cachedModules[uri] = new Module(uri, STATUS.FETCHING))
-
-        module.status >= STATUS.FETCHED ? onFetched() : fetch(uri, onFetched)
-
-        function onFetched() {
-          // cachedModules[uri] is changed in un-correspondence case
-          module = cachedModules[uri]
-
-          if (module.status >= STATUS.SAVED) {
-            var deps = getPureDependencies(module)
-
-            if (deps.length) {
-              Module.prototype._load(deps, function() {
-                cb(module)
-              })
-            }
-            else {
-              cb(module)
-            }
-          }
-          // Maybe failed to fetch successfully, such as 404 or non-module.
-          // In these cases, just call cb function directly.
-          else {
-            cb()
-          }
-        }
-
-      })(unLoadedUris[i])
-    }
-
-    function cb(module) {
-      (module || {}).status < STATUS.READY && (module.status = STATUS.READY)
-      --remain === 0 && callback()
-    }
-  }
-
-
-  Module.prototype._compile = function() {
-    var module = this
-    if (module.status === STATUS.COMPILED) {
-      return module.exports
-    }
-
-    // Just return null when:
-    //  1. the module file is 404.
-    //  2. the module file is not written with valid module format.
-    //  3. other error cases.
-    if (module.status < STATUS.SAVED && !hasModifiers(module)) {
-      return null
-    }
-
-    module.status = STATUS.COMPILING
-
-
-    function require(id) {
-      var uri = resolve(id, module.uri)
-      var child = cachedModules[uri]
-
-      // Just return null when uri is invalid.
-      if (!child) {
-        return null
-      }
-
-      // Avoids circular calls.
-      if (child.status === STATUS.COMPILING) {
-        return child.exports
-      }
-
-      child.parent = module
-      return child._compile()
-    }
-
-    require.async = function(ids, callback) {
-      module._use(ids, callback)
-    }
-
-    require.resolve = function(id) {
-      return resolve(id, module.uri)
-    }
-
-    require.cache = cachedModules
-
-
-    module.require = require
-    module.exports = {}
-    var factory = module.factory
-
-    if (util.isFunction(factory)) {
-      compileStack.push(module)
-      runInModuleContext(factory, module)
-      compileStack.pop()
-    }
-    else if (factory !== undefined) {
-      module.exports = factory
-    }
-
-    module.status = STATUS.COMPILED
-    execModifiers(module)
-    return module.exports
-  }
-
-
-  Module._define = function(id, deps, factory) {
-    var argsLength = arguments.length
-
-    // define(factory)
-    if (argsLength === 1) {
-      factory = id
-      id = undefined
-    }
-    // define(id || deps, factory)
-    else if (argsLength === 2) {
-      factory = deps
-      deps = undefined
-
-      // define(deps, factory)
-      if (util.isArray(id)) {
-        deps = id
-        id = undefined
-      }
-    }
-
-    // Parses dependencies.
-    if (!util.isArray(deps) && util.isFunction(factory)) {
-      deps = util.parseDependencies(factory.toString())
-    }
-
-    var meta = { id: id, dependencies: deps, factory: factory }
-    var derivedUri
-
-    // Try to derive uri in IE6-9 for anonymous modules.
-    if (document.attachEvent) {
-      // Try to get the current script.
-      var script = util.getCurrentScript()
-      if (script) {
-        derivedUri = util.unParseMap(util.getScriptAbsoluteSrc(script))
-      }
-
-      if (!derivedUri) {
-        util.log('Failed to derive URI from interactive script for:',
-            factory.toString(), 'warn')
-
-        // NOTE: If the id-deriving methods above is failed, then falls back
-        // to use onload event to get the uri.
-      }
-    }
-
-    // Gets uri directly for specific module.
-    var resolvedUri = id ? resolve(id) : derivedUri
-
-    if (resolvedUri) {
-      // For IE:
-      // If the first module in a package is not the cachedModules[derivedUri]
-      // self, it should assign to the correct module when found.
-      if (resolvedUri === derivedUri) {
-        var refModule = cachedModules[derivedUri]
-        if (refModule && refModule.realUri &&
-            refModule.status === STATUS.SAVED) {
-          cachedModules[derivedUri] = null
-        }
-      }
-
-      var module = Module._save(resolvedUri, meta)
-
-      // For IE:
-      // Assigns the first module in package to cachedModules[derivedUrl]
-      if (derivedUri) {
-        // cachedModules[derivedUri] may be undefined in combo case.
-        if ((cachedModules[derivedUri] || {}).status === STATUS.FETCHING) {
-          cachedModules[derivedUri] = module
-          module.realUri = derivedUri
-        }
-      }
-      else {
-        firstModuleInPackage || (firstModuleInPackage = module)
-      }
-    }
-    else {
-      // Saves information for "memoizing" work in the onload event.
-      anonymousModuleMeta = meta
-    }
-
-  }
-
-
-  Module._getCompilingModule = function() {
-    return compileStack[compileStack.length - 1]
-  }
-
-
-  Module._find = function(selector) {
-    var matches = []
-
-    util.forEach(util.keys(cachedModules), function(uri) {
-      if (util.isString(selector) && uri.indexOf(selector) > -1 ||
-          util.isRegExp(selector) && selector.test(uri)) {
-        var module = cachedModules[uri]
-        module.exports && matches.push(module.exports)
-      }
-    })
-
-    return matches
-  }
-
-
-  Module._modify = function(id, modifier) {
-    var uri = resolve(id)
-    var module = cachedModules[uri]
-
-    if (module && module.status === STATUS.COMPILED) {
-      runInModuleContext(modifier, module)
-    }
-    else {
-      cachedModifiers[uri] || (cachedModifiers[uri] = [])
-      cachedModifiers[uri].push(modifier)
-    }
-
-    return seajs
-  }
-
-
-  // For plugin developers
-  Module.STATUS = STATUS
-  Module._resolve = util.id2Uri
-  Module._fetch = util.fetch
-  Module._save = save
-
-
-  // Helpers
-  // -------
-
-  var fetchingList = {}
-  var fetchedList = {}
-  var callbackList = {}
-  var anonymousModuleMeta = null
-  var firstModuleInPackage = null
-  var circularCheckStack = []
-
-  function resolve(ids, refUri) {
-    if (util.isString(ids)) {
-      return Module._resolve(ids, refUri)
-    }
-
-    return util.map(ids, function(id) {
-      return resolve(id, refUri)
-    })
-  }
-
-  function fetch(uri, callback) {
-    var requestUri = util.parseMap(uri)
-
-    if (fetchedList[requestUri]) {
-      // See test/issues/debug-using-map
-      cachedModules[uri] = cachedModules[requestUri]
-      callback()
-      return
-    }
-
-    if (fetchingList[requestUri]) {
-      callbackList[requestUri].push(callback)
-      return
-    }
-
-    fetchingList[requestUri] = true
-    callbackList[requestUri] = [callback]
-
-    // Fetches it
-    Module._fetch(
-        requestUri,
-
-        function() {
-          fetchedList[requestUri] = true
-
-          // Updates module status
-          var module = cachedModules[uri]
-          if (module.status === STATUS.FETCHING) {
-            module.status = STATUS.FETCHED
-          }
-
-          // Saves anonymous module meta data
-          if (anonymousModuleMeta) {
-            Module._save(uri, anonymousModuleMeta)
-            anonymousModuleMeta = null
-          }
-
-          // Assigns the first module in package to cachedModules[uri]
-          // See: test/issues/un-correspondence
-          if (firstModuleInPackage && module.status === STATUS.FETCHED) {
-            cachedModules[uri] = firstModuleInPackage
-            firstModuleInPackage.realUri = uri
-          }
-          firstModuleInPackage = null
-
-          // Clears
-          if (fetchingList[requestUri]) {
-            delete fetchingList[requestUri]
-          }
-
-          // Calls callbackList
-          var fns = callbackList[requestUri]
-          if (fns) {
-            delete callbackList[requestUri]
-            util.forEach(fns, function(fn) {
-              fn()
-            })
-          }
-
-        },
-
-        config.charset
-    )
-  }
-
-  function save(uri, meta) {
-    var module = cachedModules[uri] || (cachedModules[uri] = new Module(uri))
-
-    // Don't override already saved module
-    if (module.status < STATUS.SAVED) {
-      // Lets anonymous module id equal to its uri
-      module.id = meta.id || uri
-
-      module.dependencies = resolve(
-          util.filter(meta.dependencies || [], function(dep) {
-            return !!dep
-          }), uri)
-
-      module.factory = meta.factory
-
-      // Updates module status
-      module.status = STATUS.SAVED
-    }
-
-    return module
-  }
-
-  function runInModuleContext(fn, module) {
-    var ret = fn(module.require, module.exports, module)
-    if (ret !== undefined) {
-      module.exports = ret
-    }
-  }
-
-  function hasModifiers(module) {
-    return !!cachedModifiers[module.realUri || module.uri]
-  }
-
-  function execModifiers(module) {
-    var uri = module.realUri || module.uri
-    var modifiers = cachedModifiers[uri]
-
-    if (modifiers) {
-      util.forEach(modifiers, function(modifier) {
-        runInModuleContext(modifier, module)
-      })
-
-      delete cachedModifiers[uri]
-    }
-  }
-
-  function getPureDependencies(module) {
-    var uri = module.uri
-
-    return util.filter(module.dependencies, function(dep) {
-      circularCheckStack = [uri]
-
-      var isCircular = isCircularWaiting(cachedModules[dep])
-      if (isCircular) {
-        circularCheckStack.push(uri)
-        printCircularLog(circularCheckStack)
-      }
-
-      return !isCircular
-    })
-  }
-
-  function isCircularWaiting(module) {
-    if (!module || module.status !== STATUS.SAVED) {
-      return false
-    }
-
-    circularCheckStack.push(module.uri)
-    var deps = module.dependencies
-
-    if (deps.length) {
-      if (isOverlap(deps, circularCheckStack)) {
-        return true
-      }
-
-      for (var i = 0; i < deps.length; i++) {
-        if (isCircularWaiting(cachedModules[deps[i]])) {
-          return true
-        }
-      }
-    }
-
-    circularCheckStack.pop()
-    return false
-  }
-
-  function printCircularLog(stack, type) {
-    util.log('Found circular dependencies:', stack.join(' --> '), type)
-  }
-
-  function isOverlap(arrA, arrB) {
-    var arrC = arrA.concat(arrB)
-    return arrC.length > util.unique(arrC).length
-  }
-
-  function preload(callback) {
-    var preloadMods = config.preload.slice()
-    config.preload = []
-    preloadMods.length ? globalModule._use(preloadMods, callback) : callback()
-  }
-
-
-  // Public API
-  // ----------
-
-  var globalModule = new Module(util.pageUri, STATUS.COMPILED)
-
-  seajs.use = function(ids, callback) {
-    // Loads preload modules before all other modules.
-    preload(function() {
-      globalModule._use(ids, callback)
-    })
-
-    // Chain
-    return seajs
-  }
-
-
-  // For normal users
-  seajs.define = Module._define
-  seajs.cache = Module.cache = cachedModules
-  seajs.find = Module._find
-  seajs.modify = Module._modify
-
-
-  // For plugin developers
-  Module.fetchedList = fetchedList
-  seajs.pluginSDK = {
-    Module: Module,
-    util: util,
-    config: config
-  }
-
-})(seajs, seajs._util, seajs._config)
-
-/**
- * The configuration
- */
-;(function(seajs, util, config) {
-
-  var noCachePrefix = 'seajs-ts='
-  var noCacheTimeStamp = noCachePrefix + util.now()
-
-
-  // Async inserted script
-  var loaderScript = document.getElementById('seajsnode')
-
-  // Static script
-  if (!loaderScript) {
-    var scripts = document.getElementsByTagName('script')
-    loaderScript = scripts[scripts.length - 1]
-  }
-
-  var loaderSrc = (loaderScript && util.getScriptAbsoluteSrc(loaderScript)) ||
-      util.pageUri // When sea.js is inline, set base to pageUri.
-
-  var base = util.dirname(getLoaderActualSrc(loaderSrc))
-  util.loaderDir = base
-
-  // When src is "http://test.com/libs/seajs/1.0.0/sea.js", redirect base
-  // to "http://test.com/libs/"
-  var match = base.match(/^(.+\/)seajs\/[\.\d]+(?:-dev)?\/$/)
-  if (match) base = match[1]
-
-  config.base = base
-  config.main = loaderScript && loaderScript.getAttribute('data-main')
-  config.charset = 'utf-8'
-
-
-  /**
-   * The function to configure the framework
-   * config({
-   *   'base': 'path/to/base',
-   *   'alias': {
-   *     'app': 'biz/xx',
-   *     'jquery': 'jquery-1.5.2',
-   *     'cart': 'cart?t=20110419'
-   *   },
-   *   'map': [
-   *     ['test.cdn.cn', 'localhost']
-   *   ],
-   *   preload: [],
-   *   charset: 'utf-8',
-   *   debug: false
-   * })
-   *
-   */
-  seajs.config = function(o) {
-    for (var k in o) {
-      if (!o.hasOwnProperty(k)) continue
-
-      var previous = config[k]
-      var current = o[k]
-
-      if (previous && k === 'alias') {
-        for (var p in current) {
-          if (current.hasOwnProperty(p)) {
-
-            var prevValue = previous[p]
-            var currValue = current[p]
-
-            // Converts {jquery: '1.7.2'} to {jquery: 'jquery/1.7.2/jquery'}
-            if (/^\d+\.\d+\.\d+$/.test(currValue)) {
-              currValue = p + '/' + currValue + '/' + p
-            }
-
-            checkAliasConflict(prevValue, currValue, p)
-            previous[p] = currValue
-
-          }
-        }
-      }
-      else if (previous && (k === 'map' || k === 'preload')) {
-        // for config({ preload: 'some-module' })
-        if (util.isString(current)) {
-          current = [current]
-        }
-
-        util.forEach(current, function(item) {
-          if (item) {
-            previous.push(item)
-          }
-        })
-      }
-      else {
-        config[k] = current
-      }
-    }
-
-    // Makes sure config.base is an absolute path.
-    var base = config.base
-    if (base && !util.isAbsolute(base)) {
-      config.base = util.id2Uri((util.isRoot(base) ? '' : './') + base + '/')
-    }
-
-    // Uses map to implement nocache.
-    if (config.debug === 2) {
-      config.debug = 1
-      seajs.config({
-        map: [
-          [/^.*$/, function(url) {
-            if (url.indexOf(noCachePrefix) === -1) {
-              url += (url.indexOf('?') === -1 ? '?' : '&') + noCacheTimeStamp
-            }
-            return url
-          }]
-        ]
-      })
-    }
-
-    debugSync()
-
-    return this
-  }
-
-
-  function debugSync() {
-    if (config.debug) {
-      // For convenient reference
-      seajs.debug = !!config.debug
-    }
-  }
-
-  debugSync()
-
-
-  function getLoaderActualSrc(src) {
-    if (src.indexOf('??') === -1) {
-      return src
-    }
-
-    // Such as: http://cdn.com/??seajs/1.2.0/sea.js,jquery/1.7.2/jquery.js
-    // Only support nginx combo style rule. If you use other combo rule, please
-    // explicitly config the base path and the alias for plugins.
-    var parts = src.split('??')
-    var root = parts[0]
-    var paths = util.filter(parts[1].split(','), function(str) {
-      return str.indexOf('sea.js') !== -1
-    })
-
-    return root + paths[0]
-  }
-
-  function checkAliasConflict(previous, current, key) {
-    if (previous && previous !== current) {
-      util.log('The alias config is conflicted:',
-          'key =', '"' + key + '"',
-          'previous =', '"' + previous + '"',
-          'current =', '"' + current + '"',
-          'warn')
-    }
-  }
-
-})(seajs, seajs._util, seajs._config)
-
-/**
- * Prepare for bootstrapping
- */
-;(function(seajs, util, global) {
-
-  // The safe and convenient version of console.log
-  seajs.log = util.log
-
-
-  // Creates a stylesheet from a text blob of rules.
-  seajs.importStyle = util.importStyle
-
-
-  // Sets a alias to `sea.js` directory for loading plugins.
-  seajs.config({
-    alias: { seajs: util.loaderDir }
-  })
-
-
-  // Uses `seajs-xxx` flag to load plugin-xxx.
-  util.forEach(getStartupPlugins(), function(name) {
-    seajs.use('seajs/plugin-' + name)
-
-    // Delays `seajs.use` calls to the onload of `mapfile` in debug mode.
-    if (name === 'debug') {
-      seajs._use = seajs.use
-      seajs._useArgs = []
-      seajs.use = function() { seajs._useArgs.push(arguments); return seajs }
-    }
-  })
-
-
-  // Helpers
-  // -------
-
-  function getStartupPlugins() {
-    var ret = []
-    var str = global.location.search
-
-    // Converts `seajs-xxx` to `seajs-xxx=1`
-    str = str.replace(/(seajs-\w+)(&|$)/g, '$1=1$2')
-
-    // Add cookie string
-    str += ' ' + document.cookie
-
-    // Excludes seajs-xxx=0
-    str.replace(/seajs-(\w+)=[1-9]/g, function(m, name) {
-      ret.push(name)
-    })
-
-    return util.unique(ret)
-  }
-
-})(seajs, seajs._util, this)
-
-/**
- * The bootstrap and entrances
- */
-;(function(seajs, config, global) {
-
-  var _seajs = seajs._seajs
-
-  // Avoids conflicting when sea.js is loaded multi times.
-  if (_seajs && !_seajs['args']) {
-    global.seajs = seajs._seajs
+      pollCss(node, callback)
+    }, 1) // Begin after node insertion
     return
   }
 
+  node.onload = node.onerror = node.onreadystatechange = function() {
+    if (READY_STATE_RE.test(node.readyState)) {
 
-  // Assigns to global define.
-  global.define = seajs.define
+      // Ensure only run once and handle memory leak in IE
+      node.onload = node.onerror = node.onreadystatechange = null
 
-
-  // Loads the data-main module automatically.
-  config.main && seajs.use(config.main)
-
-
-    // Parses the pre-call of seajs.config/seajs.use/define.
-  // Ref: test/bootstrap/async-3.html
-  ;(function(args) {
-    if (args) {
-      var hash = {
-        0: 'config',
-        1: 'use',
-        2: 'define'
+      // Remove the script to reduce memory leak
+      if (!isCSS && !data.debug) {
+        head.removeChild(node)
       }
-      for (var i = 0; i < args.length; i += 2) {
-        seajs[hash[args[i]]].apply(seajs, args[i + 1])
+
+      // Dereference the node
+      node = null
+
+      callback()
+    }
+  }
+}
+
+function pollCss(node, callback) {
+  var sheet = node.sheet
+  var isLoaded
+
+  // for WebKit < 536
+  if (isOldWebKit) {
+    if (sheet) {
+      isLoaded = true
+    }
+  }
+  // for Firefox < 9.0
+  else if (sheet) {
+    try {
+      if (sheet.cssRules) {
+        isLoaded = true
+      }
+    } catch (ex) {
+      // The value of `ex.name` is changed from "NS_ERROR_DOM_SECURITY_ERR"
+      // to "SecurityError" since Firefox 13.0. But Firefox is less than 9.0
+      // in here, So it is ok to just rely on "NS_ERROR_DOM_SECURITY_ERR"
+      if (ex.name === "NS_ERROR_DOM_SECURITY_ERR") {
+        isLoaded = true
       }
     }
-  })((_seajs || 0)['args'])
+  }
+
+  setTimeout(function() {
+    if (isLoaded) {
+      // Place callback here to give time for style rendering
+      callback()
+    }
+    else {
+      pollCss(node, callback)
+    }
+  }, 20)
+}
+
+function getCurrentScript() {
+  if (currentlyAddingScript) {
+    return currentlyAddingScript
+  }
+
+  // For IE6-9 browsers, the script onload event may not fire right
+  // after the script is evaluated. Kris Zyp found that it
+  // could query the script nodes and the one that is in "interactive"
+  // mode indicates the current script
+  // ref: http://goo.gl/JHfFW
+  if (interactiveScript && interactiveScript.readyState === "interactive") {
+    return interactiveScript
+  }
+
+  var scripts = head.getElementsByTagName("script")
+
+  for (var i = scripts.length - 1; i >= 0; i--) {
+    var script = scripts[i]
+    if (script.readyState === "interactive") {
+      interactiveScript = script
+      return interactiveScript
+    }
+  }
+}
 
 
-  // Add define.amd property for clear indicator.
-  global.define.cmd = {}
+/**
+ * util-deps.js - The parser for dependencies
+ * ref: tests/research/parse-dependencies/test.html
+ */
+
+var REQUIRE_RE = /"(?:\\"|[^"])*"|'(?:\\'|[^'])*'|\/\*[\S\s]*?\*\/|\/(?:\\\/|[^\/\r\n])+\/(?=[^\/])|\/\/.*|\.\s*require|(?:^|[^$])\brequire\s*\(\s*(["'])(.+?)\1\s*\)/g
+var SLASH_RE = /\\\\/g
+
+function parseDependencies(code) {
+  var ret = []
+
+  code.replace(SLASH_RE, "")
+      .replace(REQUIRE_RE, function(m, m1, m2) {
+        if (m2) {
+          ret.push(m2)
+        }
+      })
+
+  return ret
+}
 
 
-  // Keeps clean!
-  delete seajs.define
-  delete seajs._util
-  delete seajs._config
-  delete seajs._seajs
+/**
+ * module.js - The core of module loader
+ */
 
-})(seajs, seajs._config, this)
+var cachedMods = seajs.cache = {}
+var anonymousMeta
+
+var fetchingList = {}
+var fetchedList = {}
+var callbackList = {}
+
+var STATUS = Module.STATUS = {
+  // 1 - The `module.uri` is being fetched
+  FETCHING: 1,
+  // 2 - The meta data has been saved to cachedMods
+  SAVED: 2,
+  // 3 - The `module.dependencies` are being loaded
+  LOADING: 3,
+  // 4 - The module are ready to execute
+  LOADED: 4,
+  // 5 - The module is being executed
+  EXECUTING: 5,
+  // 6 - The `module.exports` is available
+  EXECUTED: 6
+}
 
 
-var loaderPath = seajs.pluginSDK.util.loaderDir;
+function Module(uri, deps) {
+  this.uri = uri
+  this.dependencies = deps || []
+  this.exports = null
+  this.status = 0
+
+  // Who depends on me
+  this._waitings = {}
+
+  // The number of unloaded dependencies
+  this._remain = 0
+}
+
+// Resolve module.dependencies
+Module.prototype.resolve = function() {
+  var mod = this
+  var ids = mod.dependencies
+  var uris = []
+
+  for (var i = 0, len = ids.length; i < len; i++) {
+    uris[i] = Module.resolve(ids[i], mod.uri)
+  }
+  return uris
+}
+
+// Load module.dependencies and fire onload when all done
+Module.prototype.load = function() {
+  var mod = this
+
+  // If the module is being loaded, just wait it onload call
+  if (mod.status >= STATUS.LOADING) {
+    return
+  }
+
+  mod.status = STATUS.LOADING
+
+  // Emit `load` event for plugins such as combo plugin
+  var uris = mod.resolve()
+  emit("load", uris)
+
+  var len = mod._remain = uris.length
+  var m
+
+  // Initialize modules and register waitings
+  for (var i = 0; i < len; i++) {
+    m = Module.get(uris[i])
+
+    if (m.status < STATUS.LOADED) {
+      // Maybe duplicate
+      m._waitings[mod.uri] = (m._waitings[mod.uri] || 0) + 1
+    }
+    else {
+      mod._remain--
+    }
+  }
+
+  if (mod._remain === 0) {
+    mod.onload()
+    return
+  }
+
+  // Begin parallel loading
+  var requestCache = {}
+
+  for (i = 0; i < len; i++) {
+    m = cachedMods[uris[i]]
+
+    if (m.status < STATUS.FETCHING) {
+      m.fetch(requestCache)
+    }
+    else if (m.status === STATUS.SAVED) {
+      m.load()
+    }
+  }
+
+  // Send all requests at last to avoid cache bug in IE6-9. Issues#808
+  for (var requestUri in requestCache) {
+    if (requestCache.hasOwnProperty(requestUri)) {
+      requestCache[requestUri]()
+    }
+  }
+}
+
+// Call this method when module is loaded
+Module.prototype.onload = function() {
+  var mod = this
+  mod.status = STATUS.LOADED
+
+  if (mod.callback) {
+    mod.callback()
+  }
+
+  // Notify waiting modules to fire onload
+  var waitings = mod._waitings
+  var uri, m
+
+  for (uri in waitings) {
+    if (waitings.hasOwnProperty(uri)) {
+      m = cachedMods[uri]
+      m._remain -= waitings[uri]
+      if (m._remain === 0) {
+        m.onload()
+      }
+    }
+  }
+
+  // Reduce memory taken
+  delete mod._waitings
+  delete mod._remain
+}
+
+// Fetch a module
+Module.prototype.fetch = function(requestCache) {
+  var mod = this
+  var uri = mod.uri
+
+  mod.status = STATUS.FETCHING
+
+  // Emit `fetch` event for plugins such as combo plugin
+  var emitData = { uri: uri }
+  emit("fetch", emitData)
+  var requestUri = emitData.requestUri || uri
+
+  // Empty uri or a non-CMD module
+  if (!requestUri || fetchedList[requestUri]) {
+    mod.load()
+    return
+  }
+
+  if (fetchingList[requestUri]) {
+    callbackList[requestUri].push(mod)
+    return
+  }
+
+  fetchingList[requestUri] = true
+  callbackList[requestUri] = [mod]
+
+  // Emit `request` event for plugins such as text plugin
+  emit("request", emitData = {
+    uri: uri,
+    requestUri: requestUri,
+    onRequest: onRequest,
+    charset: data.charset
+  })
+
+  if (!emitData.requested) {
+    requestCache ?
+        requestCache[emitData.requestUri] = sendRequest :
+        sendRequest()
+  }
+
+  function sendRequest() {
+    request(emitData.requestUri, emitData.onRequest, emitData.charset)
+  }
+
+  function onRequest() {
+    delete fetchingList[requestUri]
+    fetchedList[requestUri] = true
+
+    // Save meta data of anonymous module
+    if (anonymousMeta) {
+      Module.save(uri, anonymousMeta)
+      anonymousMeta = null
+    }
+
+    // Call callbacks
+    var m, mods = callbackList[requestUri]
+    delete callbackList[requestUri]
+    while ((m = mods.shift())) m.load()
+  }
+}
+
+// Execute a module
+Module.prototype.exec = function () {
+  var mod = this
+
+  // When module is executed, DO NOT execute it again. When module
+  // is being executed, just return `module.exports` too, for avoiding
+  // circularly calling
+  if (mod.status >= STATUS.EXECUTING) {
+    return mod.exports
+  }
+
+  mod.status = STATUS.EXECUTING
+
+  // Create require
+  var uri = mod.uri
+
+  function require(id) {
+    return Module.get(require.resolve(id)).exec()
+  }
+
+  require.resolve = function(id) {
+    return Module.resolve(id, uri)
+  }
+
+  require.async = function(ids, callback) {
+    Module.use(ids, callback, uri + "_async_" + cid())
+    return require
+  }
+
+  // Exec factory
+  var factory = mod.factory
+
+  var exports = isFunction(factory) ?
+      factory(require, mod.exports = {}, mod) :
+      factory
+
+  if (exports === undefined) {
+    exports = mod.exports
+  }
+
+  // Emit `error` event
+  if (exports === null && !IS_CSS_RE.test(uri)) {
+    emit("error", mod)
+  }
+
+  // Reduce memory leak
+  delete mod.factory
+
+  mod.exports = exports
+  mod.status = STATUS.EXECUTED
+
+  // Emit `exec` event
+  emit("exec", mod)
+
+  return exports
+}
+
+// Resolve id to uri
+Module.resolve = function(id, refUri) {
+  // Emit `resolve` event for plugins such as text plugin
+  var emitData = { id: id, refUri: refUri }
+  emit("resolve", emitData)
+
+  return emitData.uri || id2Uri(emitData.id, refUri)
+}
+
+// Define a module
+Module.define = function (id, deps, factory) {
+  var argsLen = arguments.length
+
+  // define(factory)
+  if (argsLen === 1) {
+    factory = id
+    id = undefined
+  }
+  else if (argsLen === 2) {
+    factory = deps
+
+    // define(deps, factory)
+    if (isArray(id)) {
+      deps = id
+      id = undefined
+    }
+    // define(id, factory)
+    else {
+      deps = undefined
+    }
+  }
+
+  // Parse dependencies according to the module factory code
+  if (!isArray(deps) && isFunction(factory)) {
+    deps = parseDependencies(factory.toString())
+  }
+
+  var meta = {
+    id: id,
+    uri: Module.resolve(id),
+    deps: deps,
+    factory: factory
+  }
+
+  // Try to derive uri in IE6-9 for anonymous modules
+  if (!meta.uri && doc.attachEvent) {
+    var script = getCurrentScript()
+
+    if (script) {
+      meta.uri = script.src
+    }
+
+    // NOTE: If the id-deriving methods above is failed, then falls back
+    // to use onload event to get the uri
+  }
+
+  // Emit `define` event, used in nocache plugin, seajs node version etc
+  emit("define", meta)
+
+  meta.uri ? Module.save(meta.uri, meta) :
+      // Save information for "saving" work in the script onload event
+      anonymousMeta = meta
+}
+
+// Save meta data to cachedMods
+Module.save = function(uri, meta) {
+  var mod = Module.get(uri)
+
+  // Do NOT override already saved modules
+  if (mod.status < STATUS.SAVED) {
+    mod.id = meta.id || uri
+    mod.dependencies = meta.deps || []
+    mod.factory = meta.factory
+    mod.status = STATUS.SAVED
+  }
+}
+
+// Get an existed module or create a new one
+Module.get = function(uri, deps) {
+  return cachedMods[uri] || (cachedMods[uri] = new Module(uri, deps))
+}
+
+// Use function is equal to load a anonymous module
+Module.use = function (ids, callback, uri) {
+  var mod = Module.get(uri, isArray(ids) ? ids : [ids])
+
+  mod.callback = function() {
+    var exports = []
+    var uris = mod.resolve()
+
+    for (var i = 0, len = uris.length; i < len; i++) {
+      exports[i] = cachedMods[uris[i]].exec()
+    }
+
+    if (callback) {
+      callback.apply(global, exports)
+    }
+
+    delete mod.callback
+  }
+
+  mod.load()
+}
+
+// Load preload modules before all other modules
+Module.preload = function(callback) {
+  var preloadMods = data.preload
+  var len = preloadMods.length
+
+  if (len) {
+    Module.use(preloadMods, function() {
+      // Remove the loaded preload modules
+      preloadMods.splice(0, len)
+
+      // Allow preload modules to add new preload modules
+      Module.preload(callback)
+    }, data.cwd + "_preload_" + cid())
+  }
+  else {
+    callback()
+  }
+}
+
+
+// Public API
+
+seajs.use = function(ids, callback) {
+  Module.preload(function() {
+    Module.use(ids, callback, data.cwd + "_use_" + cid())
+  })
+  return seajs
+}
+
+Module.define.cmd = {}
+global.define = Module.define
+
+
+// For Developers
+
+seajs.Module = Module
+data.fetchedList = fetchedList
+data.cid = cid
+
+seajs.resolve = id2Uri
+seajs.require = function(id) {
+  return (cachedMods[Module.resolve(id)] || {}).exports
+}
+
+
+/**
+ * config.js - The configuration for the loader
+ */
+
+var BASE_RE = /^(.+?\/)(\?\?)?(seajs\/)+/
+
+// The root path to use for id2uri parsing
+// If loaderUri is `http://test.com/libs/seajs/[??][seajs/1.2.3/]sea.js`, the
+// baseUri should be `http://test.com/libs/`
+data.base = (loaderDir.match(BASE_RE) || ["", loaderDir])[1]
+
+// The loader directory
+data.dir = loaderDir
+
+// The current working directory
+data.cwd = cwd
+
+// The charset for requesting files
+data.charset = "utf-8"
+
+// Modules that are needed to load before all other modules
+data.preload = (function() {
+  var plugins = []
+
+  // Convert `seajs-xxx` to `seajs-xxx=1`
+  // NOTE: use `seajs-xxx=1` flag in uri or cookie to preload `seajs-xxx`
+  var str = loc.search.replace(/(seajs-\w+)(&|$)/g, "$1=1$2")
+
+  // Add cookie string
+  str += " " + doc.cookie
+
+  // Exclude seajs-xxx=0
+  str.replace(/(seajs-\w+)=1/g, function(m, name) {
+    plugins.push(name)
+  })
+
+  return plugins
+})()
+
+// data.alias - An object containing shorthands of module id
+// data.paths - An object containing path shorthands in module id
+// data.vars - The {xxx} variables in module id
+// data.map - An array containing rules to map module uri
+// data.debug - Debug mode. The default value is false
+
+seajs.config = function(configData) {
+
+  for (var key in configData) {
+    var curr = configData[key]
+    var prev = data[key]
+
+    // Merge object config such as alias, vars
+    if (prev && isObject(prev)) {
+      for (var k in curr) {
+        prev[k] = curr[k]
+      }
+    }
+    else {
+      // Concat array config such as map, preload
+      if (isArray(prev)) {
+        curr = prev.concat(curr)
+      }
+      // Make sure that `data.base` is an absolute path
+      else if (key === "base") {
+        (curr.slice(-1) === "/") || (curr += "/")
+        curr = addBase(curr)
+      }
+
+      // Set config
+      data[key] = curr
+    }
+  }
+
+  emit("config", configData)
+  return seajs
+}
+
+
+})(this);
+
+var loaderPath = seajs.pluginSDK ? seajs.pluginSDK.util.loaderDir : seajs.data.base;
 seajs.config({
   map : [
     [/.js$/, '-min.js']
   ],
-  alias : {
-    'bui' : loaderPath
-  },
   charset: 'utf-8'
 });
+
+  seajs.config({
+    paths : {
+      'bui' : loaderPath
+    }
+  });
+
+
 
 var BUI = BUI || {};
 
 BUI.use = seajs.use;
 
-BUI.config = seajs.config;
+BUI.config = function(cfg){
+  if(cfg.alias){
+    cfg.paths = cfg.alias;
+    delete cfg.alias;
+  }
+  seajs.config(cfg);
+} 
 
 BUI.setDebug = function (debug) {
   BUI.debug = debug;
+
   if(debug){
-    seajs.config({
-      map : [
-        ['-min.js', '.js']
-      ]
-    });
+    var map = seajs.data.map,
+      index = -1;
+    for(var i = 0 ; i < map.length; i++){
+      var item = map[i];
+      if(item[0].toString() == /.js$/.toString() && item[1] == '-min.js'){
+        index = i;
+        break;
+      }
+    }
+    if(index != -1){
+      map.splice(index,1);
+    }
+    
   }else{
     seajs.config({
       map : [
@@ -1601,10 +1035,10 @@ define('bui/util',function(){
         if(p == 'value'){
           if(BUI.isObject(attrConfig[p])){
             attr[p] = attr[p] || {};
-            BUI.mix(true,attr[p], attrConfig[p]); 
+            BUI.mix(/*true,*/attr[p], attrConfig[p]); 
           }else if(BUI.isArray(attrConfig[p])){
             attr[p] = attr[p] || [];
-            BUI.mix(true,attr[p], attrConfig[p]); 
+            BUI.mix(/*true,*/attr[p], attrConfig[p]); 
           }else{
             attr[p] = attrConfig[p];
           }
@@ -1636,7 +1070,7 @@ define('bui/util',function(){
      * \u5b50\u7248\u672c\u53f7
      * @type {String}
      */
-    subVersion : 2,
+    subVersion : 57,
 
     /**
      * \u662f\u5426\u4e3a\u51fd\u6570
@@ -1850,6 +1284,11 @@ define('bui/util',function(){
       }
       return window[name];
     },
+
+    mixAttrs : mixAttrs,
+
+    mixAttr : mixAttr,
+
     /**
      * \u5c06\u5176\u4ed6\u7c7b\u4f5c\u4e3amixin\u96c6\u6210\u5230\u6307\u5b9a\u7c7b\u4e0a\u9762
      * @param {Function} c \u6784\u9020\u51fd\u6570
@@ -3835,6 +3274,20 @@ define('bui/base',['bui/observable'],function(require){
       return self;
   }
 
+  function initClassAttrs(c){
+    if(c._attrs || c == Base){
+      return;
+    }
+
+    var superCon = c.superclass.constructor;
+    if(superCon && !superCon._attrs){
+      initClassAttrs(superCon);
+    }
+    c._attrs =  {};
+    
+    BUI.mixAttrs(c._attrs,superCon._attrs);
+    BUI.mixAttrs(c._attrs,c.ATTRS);
+  }
   /**
    * \u57fa\u7840\u7c7b\uff0c\u6b64\u7c7b\u63d0\u4f9b\u4ee5\u4e0b\u529f\u80fd
    *  - \u63d0\u4f9b\u8bbe\u7f6e\u83b7\u53d6\u5c5e\u6027
@@ -3926,11 +3379,13 @@ define('bui/base',['bui/observable'],function(require){
             c = c.superclass ? c.superclass.constructor : null;
         }
         //\u4ee5\u5f53\u524d\u5bf9\u8c61\u7684\u5c5e\u6027\u6700\u7ec8\u6dfb\u52a0\u5230\u5c5e\u6027\u4e2d\uff0c\u8986\u76d6\u4e4b\u524d\u7684\u5c5e\u6027
-        for (var i = constructors.length - 1; i >= 0; i--) {
+        /*for (var i = constructors.length - 1; i >= 0; i--) {
           _self.addAttrs(constructors[i]['ATTRS'],true);
-        };
-        _self._initAttrs(config);
-
+        };*/
+      var con = _self.constructor;
+      initClassAttrs(con);
+      _self._initStaticAttrs(con._attrs);
+      _self._initAttrs(config);
   };
 
   Base.INVALID = INVALID;
@@ -3939,6 +3394,24 @@ define('bui/base',['bui/observable'],function(require){
 
   BUI.augment(Base,
   {
+    _initStaticAttrs : function(attrs){
+      var _self = this,
+        __attrs;
+
+      __attrs = _self.__attrs = {};
+      for (var p in attrs) {
+        if(attrs.hasOwnProperty(p)){
+          var attr = attrs[p];
+          /*if(BUI.isObject(attr.value) || BUI.isArray(attr.value) || attr.valueFn){*/
+          if(attr.shared === false || attr.valueFn){
+            __attrs[p] = {};
+            BUI.mixAttr(__attrs[p], attrs[p]); 
+          }else{
+            __attrs[p] = attrs[p];
+          }
+        }
+      };
+    },
     /**
      * \u6dfb\u52a0\u5c5e\u6027\u5b9a\u4e49
      * @protected
@@ -3950,8 +3423,7 @@ define('bui/base',['bui/observable'],function(require){
             var _self = this,
                 attrs = _self.__attrs,
                 attr = attrs[name];
-                //;//$.clone(attrConfig);
-            /**/
+            
             if(!attr){
               attr = attrs[name] = {};
             }
@@ -3960,10 +3432,10 @@ define('bui/base',['bui/observable'],function(require){
                 if(p == 'value'){
                   if(BUI.isObject(attrConfig[p])){
                     attr[p] = attr[p] || {};
-                    BUI.mix(true,attr[p], attrConfig[p]); 
+                    BUI.mix(/*true,*/attr[p], attrConfig[p]); 
                   }else if(BUI.isArray(attrConfig[p])){
                     attr[p] = attr[p] || [];
-                    BUI.mix(true,attr[p], attrConfig[p]); 
+                    BUI.mix(/*true,*/attr[p], attrConfig[p]); 
                   }else{
                     attr[p] = attrConfig[p];
                   }
@@ -3973,11 +3445,6 @@ define('bui/base',['bui/observable'],function(require){
               }
 
             };
-            /*if (!attrs[name]) {
-                attrs[name] = BUI.cloneObject(attrConfig);
-            } else if(overrides){
-                BUI.mix(true,attrs[name], attrConfig);
-            }*/
             return _self;
     },
     /**
@@ -4198,6 +3665,7 @@ define('bui/base',['bui/observable'],function(require){
             
             // finally set
             _self.__attrVals[name] = value;
+      return _self;
     },
     //\u521d\u59cb\u5316\u5c5e\u6027
     _initAttrs : function(config){
@@ -4412,7 +3880,7 @@ define('bui/component/manage',function(require){
 ;(function(){
 var BASE = 'bui/component/uibase/';
 define('bui/component/uibase',[BASE + 'base',BASE + 'align',BASE + 'autoshow',BASE + 'autohide',
-    BASE + 'close',BASE + 'collapseable',BASE + 'drag',BASE + 'keynav',BASE + 'list',
+    BASE + 'close',BASE + 'collapsable',BASE + 'drag',BASE + 'keynav',BASE + 'list',
     BASE + 'listitem',BASE + 'mask',BASE + 'position',BASE + 'selection',BASE + 'stdmod',
     BASE + 'decorate',BASE + 'tpl',BASE + 'childcfg',BASE + 'bindable',BASE + 'depends'],function(r){
 
@@ -4423,7 +3891,7 @@ define('bui/component/uibase',[BASE + 'base',BASE + 'align',BASE + 'autoshow',BA
     AutoShow : r(BASE + 'autoshow'),
     AutoHide : r(BASE + 'autohide'),
     Close : r(BASE + 'close'),
-    Collapseable : r(BASE + 'collapseable'),
+    Collapsable : r(BASE + 'collapsable'),
     Drag : r(BASE + 'drag'),
     KeyNav : r(BASE + 'keynav'),
     List : r(BASE + 'list'),
@@ -4441,7 +3909,7 @@ define('bui/component/uibase',[BASE + 'base',BASE + 'align',BASE + 'autoshow',BA
 
   BUI.mix(UIBase,{
     CloseView : UIBase.Close.View,
-    CollapseableView : UIBase.Collapseable.View,
+    CollapsableView : UIBase.Collapsable.View,
     ChildList : UIBase.List.ChildList,
     /*DomList : UIBase.List.DomList,
     DomListView : UIBase.List.DomList.View,*/
@@ -4593,7 +4061,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
      * @ignore
      */
     function bindUI(self) {
-        var attrs = self.getAttrs(),
+        /*var attrs = self.getAttrs(),
             attr,
             m;
 
@@ -4613,6 +4081,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
                 }
             }
         }
+        */
     }
 
         /**
@@ -4661,8 +4130,8 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
 
         var listener,
             n,
-            plugins = _self.get('plugins'),
-            listeners = _self.get('listeners');
+            plugins = _self.get('plugins')/*,
+            listeners = _self.get('listeners')*/;
 
         constructPlugins(plugins);
     
@@ -4739,7 +4208,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
      * @readOnly
      */
     plugins : {
-      value : []
+      //value : []
     },
     /**
      * \u662f\u5426\u5df2\u7ecf\u6e32\u67d3\u5b8c\u6210
@@ -4802,7 +4271,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
             if (!_self.get('rendered')) {
                 var plugins = _self.get('plugins');
                 _self.create(undefined);
-
+                _self.set('created',true);
                 /**
                  * @event beforeRenderUI
                  * fired when root node is ready
@@ -4829,7 +4298,7 @@ define('bui/component/uibase/base',['bui/component/manage'],function(require){
                 _self.fire('beforeBindUI');
                 bindUI(_self);
                 callMethodByHierarchy(_self, 'bindUI', '__bindUI');
-
+                _self.set('binded',true);
                 /**
                  * @event afterBindUI
                  * fired when UIBase 's internal event is bind.
@@ -5268,6 +4737,7 @@ define('bui/component/uibase/align',['bui/ua'],function (require) {
          * </code>
          */
         align:{
+            shared : false,
             value:{}
         }
     };
@@ -5574,9 +5044,7 @@ define('bui/component/uibase/autoshow',function () {
      * @ignore
      */
     triggerCallback : {
-      value : function (ev) {
-        
-      }
+      
     },
     /**
      * \u663e\u793a\u83dc\u5355\u7684\u4e8b\u4ef6
@@ -5666,13 +5134,6 @@ define('bui/component/uibase/autoshow',function () {
         }
         _self.set('align',align);
         _self.show();
-        /*if(_self.get('autoFocused')){
-          try{ //\u5143\u7d20\u9690\u85cf\u7684\u65f6\u5019\uff0cie\u4e0b\u7ecf\u5e38\u4f1a\u62a5\u9519
-            _self.focus();
-          }catch(ev){
-            BUI.log(ev);
-          }
-        }*/
         
         
         triggerCallback && triggerCallback(ev);
@@ -6023,7 +5484,10 @@ define('bui/component/uibase/close',function () {
       },
       /**
        * \u5173\u95ed\u65f6\u9690\u85cf\u8fd8\u662f\u79fb\u9664DOM\u7ed3\u6784<br/>
-       * default "hide". \u53ef\u4ee5\u8bbe\u7f6e "destroy" \uff0c\u5f53\u70b9\u51fb\u5173\u95ed\u6309\u94ae\u65f6\u79fb\u9664\uff08destroy)\u63a7\u4ef6
+       * 
+       *  - "hide" : default \u9690\u85cf. 
+       *  - "destroy"\uff1a\u5f53\u70b9\u51fb\u5173\u95ed\u6309\u94ae\u65f6\u79fb\u9664\uff08destroy)\u63a7\u4ef6
+       *  - 'remove' : \u5f53\u5b58\u5728\u7236\u63a7\u4ef6\u65f6\u4f7f\u7528remove\uff0c\u540c\u65f6\u4ece\u7236\u5143\u7d20\u4e2d\u5220\u9664
        * @cfg {String} [closeAction = 'hide']
        */
       /**
@@ -6040,14 +5504,21 @@ define('bui/component/uibase/close',function () {
        * @event closing
        * \u6b63\u5728\u5173\u95ed\uff0c\u53ef\u4ee5\u901a\u8fc7return false \u963b\u6b62\u5173\u95ed\u4e8b\u4ef6
        * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
-       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy
+       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy,remove
+       */
+      
+      /**
+       * @event beforeclosed
+       * \u5173\u95ed\u524d\uff0c\u53d1\u751f\u5728closing\u540e\uff0cclosed\u524d\uff0c\u7528\u4e8e\u5904\u7406\u5173\u95ed\u524d\u7684\u4e00\u4e9b\u5de5\u4f5c
+       * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
+       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy,remove
        */
 
       /**
        * @event closed
        * \u5df2\u7ecf\u5173\u95ed
        * @param {Object} e \u5173\u95ed\u4e8b\u4ef6
-       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy
+       * @param {String} e.action \u5173\u95ed\u6267\u884c\u7684\u884c\u4e3a\uff0chide,destroy,remove
        */
       
       /**
@@ -6060,7 +5531,8 @@ define('bui/component/uibase/close',function () {
 
   var actions = {
       hide:HIDE,
-      destroy:'destroy'
+      destroy:'destroy',
+      remove : 'remove'
   };
 
   Close.prototype = {
@@ -6081,13 +5553,18 @@ define('bui/component/uibase/close',function () {
           btn && btn.detach();
       },
       /**
-       * \u5173\u95ed\u5f39\u51fa\u6846\uff0c\u5982\u679ccloseAction = 'hide'\u90a3\u4e48\u5c31\u662f\u9690\u85cf\uff0c\u5982\u679c closeAction = 'destroy'\u90a3\u4e48\u5c31\u662f\u91ca\u653e
+       * \u5173\u95ed\u5f39\u51fa\u6846\uff0c\u5982\u679ccloseAction = 'hide'\u90a3\u4e48\u5c31\u662f\u9690\u85cf\uff0c\u5982\u679c closeAction = 'destroy'\u90a3\u4e48\u5c31\u662f\u91ca\u653e,'remove'\u4ece\u7236\u63a7\u4ef6\u4e2d\u5220\u9664\uff0c\u5e76\u91ca\u653e
        */
       close : function(){
         var self = this,
           action = actions[self.get('closeAction') || HIDE];
         if(self.fire('closing',{action : action}) !== false){
-          self[action]();
+          self.fire('beforeclosed',{action : action});
+          if(action == 'remove'){ //\u79fb\u9664\u65f6\u540c\u65f6destroy
+            self[action](true);
+          }else{
+            self[action]();
+          }
           self.fire('closed',{action : action});
         }
       }
@@ -6407,19 +5884,19 @@ define('bui/component/uibase/keynav',['bui/keycode'],function (require) {
       
       switch(code){
         case KeyCode.UP :
-          ev.preventDefault();
+          //ev.preventDefault();
           _self.handleNavUp(ev);
           break;
         case KeyCode.DOWN : 
-          ev.preventDefault();
+          //ev.preventDefault();
           _self.handleNavDown(ev);
           break;
         case KeyCode.RIGHT : 
-          ev.preventDefault();
+          //ev.preventDefault();
           _self.handleNavRight(ev);
           break;
         case KeyCode.LEFT : 
-          ev.preventDefault();
+          //ev.preventDefault();
           _self.handleNavLeft(ev);
           break;
         case KeyCode.ENTER : 
@@ -6614,6 +6091,7 @@ define('bui/component/uibase/mask',function (require) {
             if (!maskShared || maskDesc.num == 1) {
                 mask.show();
             }
+            $('body').addClass('x-masked-relative');
         },
 
         _maskExtHide:function () {
@@ -6630,6 +6108,7 @@ define('bui/component/uibase/mask',function (require) {
             } else if(mask){
                 mask.hide();
             }
+            $('body').removeClass('x-masked-relative');
         },
 
         __destructor:function () {
@@ -7560,7 +7039,8 @@ define('bui/component/uibase/decorate',['bui/array','bui/json','bui/component/ma
         dom = el[0],
         attributes = dom.attributes,
         decorateCfgFields = _self.get('decorateCfgFields'),
-        config = {};
+        config = {},
+        statusCfg = _self._getStautsCfg(el);
 
       BUI.each(attributes,function(attr){
         var name = attr.nodeName;
@@ -7577,7 +7057,20 @@ define('bui/component/uibase/decorate',['bui/array','bui/json','bui/component/ma
           BUI.log('parse field error,the attribute is:' + name);
         }
       });
-      return config;
+      return BUI.mix(config,statusCfg);
+    },
+    //\u6839\u636ecss class\u83b7\u53d6\u72b6\u6001\u5c5e\u6027
+    //\u5982\uff1a selected,disabled\u7b49\u5c5e\u6027
+    _getStautsCfg : function(el){
+      var _self = this,
+        rst = {},
+        statusCls = _self.get('statusCls');
+      BUI.each(statusCls,function(v,k){
+        if(el.hasClass(v)){
+          rst[k] = true;
+        }
+      });
+      return rst;
     },
     /**
      * \u83b7\u53d6\u5c01\u88c5\u6210\u5b50\u63a7\u4ef6\u7684\u8282\u70b9\u96c6\u5408
@@ -7674,6 +7167,9 @@ define('bui/component/uibase/tpl',function () {
      */
     tpl:{
 
+    },
+    tplEl : {
+
     }
   };
 
@@ -7720,10 +7216,22 @@ define('bui/component/uibase/tpl',function () {
         var _self = this,
             el = _self.get('el'),
             content = _self.get('content'),
+            tplEl = _self.get('tplEl'),
             tpl = _self.getTpl(attrs);
-        if(!content && tpl){
+
+        //tplEl.remove();
+        if(!content && tpl){ //\u66ff\u6362\u6389\u539f\u5148\u7684\u5185\u5bb9
           el.empty();
           el.html(tpl);
+          /*if(tplEl){
+            var node = $(tpl).insertBefore(tplEl);
+            tplEl.remove();
+            tplEl = node;
+          }else{
+            tplEl = $(tpl).appendTo(el);
+          }
+          _self.set('tplEl',tplEl)
+          */
         }
     }
   }
@@ -7813,6 +7321,13 @@ define('bui/component/uibase/tpl',function () {
       }
     },
     /**
+     * \u63a7\u4ef6\u4fe1\u606f\u53d1\u751f\u6539\u53d8\u65f6\uff0c\u63a7\u4ef6\u5185\u5bb9\u8ddf\u6a21\u677f\u76f8\u5173\u65f6\u9700\u8981\u8c03\u7528\u8fd9\u4e2a\u51fd\u6570\uff0c
+     * \u91cd\u65b0\u901a\u8fc7\u6a21\u677f\u548c\u63a7\u4ef6\u4fe1\u606f\u6784\u9020\u5185\u5bb9
+     */
+    updateContent : function(){
+      this.setTplContent();
+    },
+    /**
      * \u6839\u636e\u63a7\u4ef6\u7684\u5c5e\u6027\u548c\u6a21\u677f\u751f\u6210\u63a7\u4ef6\u5185\u5bb9
      * @protected
      */
@@ -7839,22 +7354,22 @@ define('bui/component/uibase/tpl',function () {
  * @ignore
  */
 
-define('bui/component/uibase/collapseable',function () {
+define('bui/component/uibase/collapsable',function () {
 
   /**
   * \u63a7\u4ef6\u5c55\u5f00\u6298\u53e0\u7684\u89c6\u56fe\u7c7b
-  * @class BUI.Component.UIBase.CollapseableView
+  * @class BUI.Component.UIBase.CollapsableView
   * @private
   */
-  var collapseableView = function(){
+  var collapsableView = function(){
   
   };
 
-  collapseableView.ATTRS = {
+  collapsableView.ATTRS = {
     collapsed : {}
   }
 
-  collapseableView.prototype = {
+  collapsableView.prototype = {
     //\u8bbe\u7f6e\u6536\u7f29\u6837\u5f0f
     _uiSetCollapsed : function(v){
       var _self = this,
@@ -7869,18 +7384,18 @@ define('bui/component/uibase/collapseable',function () {
   }
   /**
    * \u63a7\u4ef6\u5c55\u5f00\u6298\u53e0\u7684\u6269\u5c55
-   * @class BUI.Component.UIBase.Collapseable
+   * @class BUI.Component.UIBase.Collapsable
    */
-  var collapseable = function(){
+  var collapsable = function(){
     
   };
 
-  collapseable.ATTRS = {
+  collapsable.ATTRS = {
     /**
      * \u662f\u5426\u53ef\u6298\u53e0
      * @type {Boolean}
      */
-    collapseable: {
+    collapsable: {
       value : false
     },
     /**
@@ -7915,7 +7430,7 @@ define('bui/component/uibase/collapseable',function () {
     }
   };
 
-  collapseable.prototype = {
+  collapsable.prototype = {
     _uiSetCollapsed : function(v){
       var _self = this;
       if(v){
@@ -7926,9 +7441,9 @@ define('bui/component/uibase/collapseable',function () {
     }
   };
 
-  collapseable.View = collapseableView;
+  collapsable.View = collapsableView;
   
-  return collapseable;
+  return collapsable;
 });/**
  * @fileOverview \u5355\u9009\u6216\u8005\u591a\u9009
  * @author  dxq613@gmail.com
@@ -8389,6 +7904,7 @@ define('bui/component/uibase/list',['bui/component/uibase/selection'],function (
      * @type {Array}
      */
     items:{
+      shared : false,
       view : true
     },
     /**
@@ -8786,6 +8302,13 @@ define('bui/component/uibase/list',['bui/component/uibase/selection'],function (
       value : true
     },
     /**
+     * \u4f7f\u7528srcNode\u65f6\uff0c\u662f\u5426\u5c06\u5185\u90e8\u7684DOM\u8f6c\u6362\u6210\u5b50\u63a7\u4ef6
+     * @type {Boolean}
+     */
+    isDecorateChild : {
+      value : true
+    },
+    /**
      * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
      * <pre>
      *  {
@@ -9053,7 +8576,7 @@ define('bui/component/uibase/childcfg',function (require) {
           var child = ev.child;
           if($.isPlainObject(child)){
             BUI.each(defaultChildCfg,function(v,k){
-              if(!child[k]){
+              if(child[k] == null){ //\u5982\u679c\u672a\u5728\u914d\u7f6e\u9879\u4e2d\u8bbe\u7f6e\uff0c\u5219\u4f7f\u7528\u9ed8\u8ba4\u503c
                 child[k] = v;
               }
             });
@@ -9175,7 +8698,7 @@ define('bui/component/uibase/depends',['bui/component/manage'],function (require
      * @type {Object}
      */
     depends : {
-      value : {}
+
     },
     /**
      * @private
@@ -9183,6 +8706,7 @@ define('bui/component/uibase/depends',['bui/component/manage'],function (require
      * @type {Object}
      */
     dependencesMap : {
+      shared : false,
       value : {}
     }
   };
@@ -9725,6 +9249,37 @@ define('bui/component/view',['bui/component/manage','bui/component/uibase'],func
             } else {
                 el.css('display', isVisible ? '' : 'none');
             }
+        },
+        set : function(name,value){
+             var _self = this,
+                attr = _self.__attrs[name],
+                ev,
+                ucName,
+                m;
+
+            if(!attr || !_self.get('binded')){ //\u672a\u521d\u59cb\u5316view\u6216\u8005\u6ca1\u7528\u5b9a\u4e49\u5c5e\u6027
+                View.superclass.set.call(this,name,value);
+                return _self;
+            }
+
+            var prevVal = View.superclass.get.call(this,name);
+
+            //\u5982\u679c\u672a\u6539\u53d8\u503c\u4e0d\u8fdb\u884c\u4fee\u6539
+            if(!$.isPlainObject(value) && !BUI.isArray(value) && prevVal === value){
+                return _self;
+            }
+            View.superclass.set.call(this,name,value);
+
+            value = _self.__attrVals[name];
+            ev = {attrName: name,prevVal: prevVal,newVal: value};
+            ucName = BUI.ucfirst(name);
+            m = '_uiSet' + ucName;
+            if(_self[m]){
+                _self[m](value,ev);
+            }
+
+            return _self;
+
         },
         /**
          * \u6790\u6784\u51fd\u6570
@@ -10443,12 +9998,14 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
 
                     // setter \u4e0d\u5e94\u8be5\u6709\u5b9e\u9645\u64cd\u4f5c\uff0c\u4ec5\u7528\u4e8e\u6b63\u89c4\u5316\u6bd4\u8f83\u597d
                     // attrCfg.setter = wrapperViewSetter(attrName);
-                    self.on('after' + BUI.ucfirst(attrName) + 'Change',
+                    // \u4e0d\u66f4\u6539attrCfg\u7684\u5b9a\u4e49\uff0c\u53ef\u4ee5\u591a\u4e2a\u5b9e\u4f8b\u516c\u7528\u4e00\u4efdattrCfg
+                    /*self.on('after' + BUI.ucfirst(attrName) + 'Change',
                         wrapperViewSetter(attrName));
+                    */
                     // \u903b\u8f91\u5c42\u8bfb\u503c\u76f4\u63a5\u4ece view \u5c42\u8bfb
                     // \u90a3\u4e48\u5982\u679c\u5b58\u5728\u9ed8\u8ba4\u503c\u4e5f\u8bbe\u7f6e\u5728 view \u5c42
                     // \u903b\u8f91\u5c42\u4e0d\u8981\u8bbe\u7f6e getter
-                    attrCfg.getter = wrapperViewGetter(attrName);
+                    //attrCfg.getter = wrapperViewGetter(attrName);
                 }
             }
         }
@@ -10551,7 +10108,9 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
             }
             Manager.addComponent(self.get('id'),self);
             // initialize view
-            self.setInternal('view', constructView(self));
+            var view = constructView(self);
+            self.setInternal('view', view);
+            self.__view = view;
         },
 
         /**
@@ -11303,6 +10862,71 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
             }
             self.get('view').destroy();
             Manager.removeComponent(id);
+        },
+        //\u8986\u5199set\u65b9\u6cd5
+        set : function(name,value,opt){
+            var _self = this,
+                view = _self.__view,
+                attr = _self.__attrs[name],
+                ucName,
+                ev,
+                m;
+            if(BUI.isObject(name)){
+                opt = value;
+                BUI.each(name,function(v,k){
+                    _self.set(k,v,opt);
+                });
+            }
+            if(!view || !attr || (opt && opt.silent)){ //\u672a\u521d\u59cb\u5316view\u6216\u8005\u6ca1\u7528\u5b9a\u4e49\u5c5e\u6027
+                Controller.superclass.set.call(this,name,value,opt);
+                return _self;
+            }
+
+            var prevVal = Controller.superclass.get.call(this,name);
+
+            //\u5982\u679c\u672a\u6539\u53d8\u503c\u4e0d\u8fdb\u884c\u4fee\u6539
+            if(!$.isPlainObject(value) && !BUI.isArray(value) && prevVal === value){
+                return _self;
+            }
+            ucName = BUI.ucfirst(name);
+            m = '_uiSet' + ucName;
+            //\u89e6\u53d1before\u4e8b\u4ef6
+            _self.fire('before' + ucName + 'Change', {
+              attrName: name,
+              prevVal: prevVal,
+              newVal: value
+            });
+
+            _self.setInternal(name, value);
+
+            value = _self.__attrVals[name];
+            if(view && attr.view){
+                view.set(name,value);
+                //return _self;
+            }
+            ev = {attrName: name,prevVal: prevVal,newVal: value};
+
+            //\u89e6\u53d1before\u4e8b\u4ef6
+            _self.fire('after' + ucName + 'Change', ev);
+            if(_self.get('binded') && _self[m]){
+                _self[m](value,ev);
+            }
+            return _self;
+        },
+        //\u8986\u5199get\u65b9\u6cd5\uff0c\u6539\u53d8\u65f6\u540c\u65f6\u6539\u53d8view\u7684\u503c
+        get : function(name){
+            var _self = this,
+                view = _self.__view,
+                attr = _self.__attrs[name],
+                value = Controller.superclass.get.call(this,name);
+            if(value !== undefined){
+                return value;
+            }
+            if(view && attr && attr.view){
+                return view.get(name);
+            }
+
+            return value;
         }
     },
     {
@@ -11821,7 +11445,8 @@ define('bui/component/controller',['bui/component/uibase','bui/component/manage'
              */
             children: {
                 sync : false,
-                value: []
+                shared : false,
+                value: []/**/
             },
             /**
              * \u63a7\u4ef6\u7684CSS\u524d\u7f00
@@ -12554,6 +12179,7 @@ define('bui/data/abstractstore',['bui/common','bui/data/proxy'],function (requir
      * @readOnly
      */
     lastParams : {
+      shared : false,
       value : {}
     },
     /**
@@ -12588,6 +12214,7 @@ define('bui/data/abstractstore',['bui/common','bui/data/proxy'],function (requir
      * @cfg {Object|BUI.Data.Proxy} proxy
      */
     proxy : {
+      shared : false,
       value : {
         
       }
@@ -13615,7 +13242,7 @@ define('bui/data/treestore',['bui/common','bui/data/node','bui/data/abstractstor
         return true;
       }
       
-      return node.loaded || node.leaf;
+      return node.loaded || node.leaf || (node.children && node.children.length);
     },
     /**
      * \u52a0\u8f7d\u8282\u70b9\u7684\u5b50\u8282\u70b9
@@ -13758,6 +13385,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
      * @type {Array}
      */
     deletedRecords : {
+      shared : false,
       value:[]
     },
     /**
@@ -13833,6 +13461,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
      * @readOnly
      */
     modifiedRecords : {
+      shared : false,
       value:[]
     },
     /**
@@ -13842,6 +13471,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
      * @readOnly
      */
     newRecords : {
+      shared : false,
       value : []
     },
     /**
@@ -13865,6 +13495,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
      * @readOnly
      */
     resultMap : {
+      shared : false,
       value : {}
     },
     /**
@@ -14150,7 +13781,7 @@ define('bui/data/store',['bui/data/proxy','bui/data/abstractstore','bui/data/sor
       var _self = this,
         resultMap = _self.get('resultMap'),
         total = _self.get('totalProperty');
-      return resultMap[total] || 0;
+      return parseInt(resultMap[total],10) || 0;
     },
     /**
      * \u83b7\u53d6\u5f53\u524d\u7f13\u5b58\u7684\u7eaa\u5f55
@@ -15200,10 +14831,7 @@ define('bui/overlay/message',['bui/overlay/dialog'],function (require) {
     priority : 0
   });
   
-  var singlelon = new message({
-      icon:'info',
-      title:''
-  });
+  var singlelon;
       
   function messageFun(buttons,defaultIcon){
    
@@ -15225,6 +14853,12 @@ define('bui/overlay/message',['bui/overlay/dialog'],function (require) {
   }
 
   function showMessage(config){
+    if(!singlelon){
+      singlelon = new message({
+          icon:'info',
+          title:''
+      });
+    }
     singlelon.set(config);
       
     singlelon.show();
@@ -16111,7 +15745,7 @@ define('bui/list/domlist',['bui/common'],function (require) {
         items = _self.get('items'),
         result = null;
       BUI.each(items,function(item){
-        if(item[field] === value){
+        if(item[field] != null && item[field] == value){//\u4f1a\u51fa\u73b0false == '','0' == false\u7684\u60c5\u51b5
             result = item;
             return false;
         }
@@ -16729,11 +16363,13 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav',
           return;
         }
         
-        if(_self.get('highlightedStatus') === 'hover'){
+        /*if(_self.get('highlightedStatus') === 'hover'){
           _self.setHighlighted(item,element)
         }else{
           _self.setItemStatus(item,'hover',true,element);
-        }
+        }*/
+        _self.get('view').setElementHover(element,true);
+
       }).delegate('.'+itemCls,'mouseout',function(ev){
         if(_self.get('disabled')){ //\u63a7\u4ef6\u7981\u7528\u540e\uff0c\u963b\u6b62\u4e8b\u4ef6
           return;
@@ -16778,8 +16414,11 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav',
     * @protected
     */
     onLocalSort : function(e){
-      //this.onLoad(e);
-      this.sort(e.field ,e.direction);
+      if(this.get('frontSortable')){
+        this.sort(e.field ,e.direction);
+      }else{
+        this.onLoad(e);
+      }
     },
     /**
      * \u52a0\u8f7d\u6570\u636e
@@ -16798,6 +16437,16 @@ define('bui/list/simplelist',['bui/common','bui/list/domlist','bui/list/keynav',
      * @ignore
      */
     {
+
+      /**
+       * \u6392\u5e8f\u7684\u65f6\u5019\u662f\u5426\u76f4\u63a5\u8fdb\u884cDOM\u7684\u6392\u5e8f\uff0c\u4e0d\u91cd\u65b0\u751f\u6210DOM\uff0c<br>
+       * \u5728\u53ef\u5c55\u5f00\u7684\u8868\u683c\u63d2\u4ef6\uff0cTreeGrid\u7b49\u63a7\u4ef6\u4e2d\u4e0d\u8981\u4f7f\u7528\u6b64\u5c5e\u6027
+       * @type {Boolean}
+       * cfg {Boolean} frontSortable
+       */
+      frontSortable : {
+        value : false
+      },
       /**
        * \u9009\u9879\u96c6\u5408
        * @protected
@@ -17095,17 +16744,56 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
     
       bindUI : function(){
         var _self = this,
-          innerControl = _self.get('innerControl'),
+          //innerControl = _self.get('innerControl'),
           hideEvent = _self.get('hideEvent'),
           trigger = $(_self.get('trigger'));
 
-        trigger.on(_self.get('triggerEvent'),function(e){
+        _self.on('show',function(ev){
+        //trigger.on(_self.get('triggerEvent'),function(e){
+          if(!_self.get('isInit')){
+            _self._initControl();
+          }
           if(_self.get('autoSetValue')){
-            var valueField = _self.get('valueField') || _self.get('textField') || this,
+            var valueField = _self.get('valueField') || _self.get('textField') || _self.get('curTrigger'),
               val = $(valueField).val();
             _self.setSelectedValue(val);
           }
         });
+
+
+        //_self.initControlEvent();
+      },
+      _initControl : function(){
+        var _self = this;
+        if(_self.get('isInit')){ //\u5df2\u7ecf\u521d\u59cb\u5316\u8fc7
+          return ;
+        }
+        if(!_self.get('innerControl')){
+          var control = _self.createControl();
+          _self.get('children').push(control);
+        }
+        _self.initControlEvent();
+        _self.set('isInit',true);
+      },
+      /**
+       * \u521d\u59cb\u5316\u5185\u90e8\u63a7\u4ef6\uff0c\u7ed1\u5b9a\u4e8b\u4ef6
+       */
+      initControl : function(){
+        this._initControl();
+      },  
+      /**
+       * @protected
+       * \u521d\u59cb\u5316\u5185\u90e8\u63a7\u4ef6
+       */
+      createControl : function(){
+        
+      },
+      //\u521d\u59cb\u5316\u5185\u90e8\u63a7\u4ef6\u7684\u4e8b\u4ef6
+      initControlEvent : function(){
+        var _self = this,
+          innerControl = _self.get('innerControl'),
+          trigger = $(_self.get('trigger')),
+          hideEvent = _self.get('hideEvent');
 
         innerControl.on(_self.get('changeEvent'),function(e){
           var curTrigger = _self.get('curTrigger'),
@@ -17136,6 +16824,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
             _self.onChange(selText,selValue,e);
           }
         });
+        
         if(hideEvent){
           innerControl.on(_self.get('hideEvent'),function(){
             var curTrigger = _self.get('curTrigger');
@@ -17203,7 +16892,7 @@ define('bui/picker/picker',['bui/overlay'],function (require) {
       },
       _uiSetValueField : function(v){
         var _self = this;
-        if(v){
+        if(v != null && v !== ''){ //if(v)\u95ee\u9898\u592a\u591a
           _self.setSelectedValue($(v).val());
         }
       },
@@ -17368,6 +17057,9 @@ define('bui/picker/listpicker',['bui/picker/picker','bui/list'],function (requir
        */
       setSelectedValue : function(val){
         val = val ? val.toString() : '';
+        if(!this.get('isInit')){
+          this._initControl();
+        }
         var _self = this,
           list = _self.get('list'),
           selectedValue = _self.getSelectedValue();
@@ -17393,6 +17085,9 @@ define('bui/picker/listpicker',['bui/picker/picker','bui/list'],function (requir
        * @return {String} \u9009\u4e2d\u7684\u503c
        */
       getSelectedValue : function(){
+        if(!this.get('isInit')){
+          this._initControl();
+        }
         return this.get('list').getSelectionValues().join(',');
       },
       /**
@@ -17400,6 +17095,9 @@ define('bui/picker/listpicker',['bui/picker/picker','bui/list'],function (requir
        * @return {String} \u9009\u4e2d\u7684\u6587\u672c
        */
       getSelectedText : function(){
+        if(!this.get('isInit')){
+          this._initControl();
+        }
         return this.get('list').getSelectionText().join(',');
       }
     },{
@@ -17633,7 +17331,9 @@ define('bui/form/tips',['bui/common','bui/overlay'],function (require) {
      * @type {Array} 
      */
     items : {
-      value:[]
+      valueFn:function(){
+        return [];
+      }
     }
   };
 
@@ -18054,11 +17754,12 @@ define('bui/form/basefield',['bui/common','bui/form/tips','bui/form/valid','bui/
     },
     /**
      * \u6e05\u7406\u51fa\u9519\u4fe1\u606f\uff0c\u56de\u6eda\u5230\u672a\u51fa\u9519\u72b6\u6001
+     * @param {Boolean} reset \u6e05\u9664\u9519\u8bef\u65f6\uff0c\u662f\u5426\u56de\u6eda\u4e0a\u6b21\u6b63\u786e\u7684\u503c
      */
-    clearErrors : function(){
+    clearErrors : function(reset){
       var _self = this;
       _self._clearError();
-      if(_self.getControlValue()!= _self.get('value')){
+      if(reset && _self.getControlValue()!= _self.get('value')){
         _self.setControlValue(_self.get('value'));
       }
     },
@@ -18743,8 +18444,8 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
 
   var BUI = require('bui/common'),
     Field = require('bui/form/basefield'),
-    DateUtil = BUI.Date,
-    DatePicker = require('bui/calendar').DatePicker;
+    DateUtil = BUI.Date;/*,
+    DatePicker = require('bui/calendar').DatePicker*/
 
   /**
    * \u8868\u5355\u6587\u672c\u57df
@@ -18758,27 +18459,25 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
       var _self = this,
         datePicker = _self.get('datePicker');
       if($.isPlainObject(datePicker)){
-        datePicker.trigger = _self.getInnerControl();
-        datePicker.autoRender = true;
-        datePicker = new DatePicker(datePicker);
-        _self.set('datePicker',datePicker);
-        _self.set('isCreatePicker',true);
-        _self.get('children').push(datePicker);
+        _self.initDatePicker(datePicker);
       }
-      if(datePicker.get('showTime')){
+      if((datePicker.get && datePicker.get('showTime'))|| datePicker.showTime){
         _self.getInnerControl().addClass('calendar-time');
       }
 
     },
-    bindUI : function(){
-      var _self = this,
-        datePicker = _self.get('datePicker');
-      /*datePicker.on('selectedchange',function(ev){
-        var curTrigger = ev.curTrigger;
-        if(curTrigger[0] == _self.getInnerControl()[0]){
-          _self.set('value',ev.value);
-        }
-      });*/
+    //\u521d\u59cb\u5316\u65e5\u5386\u63a7\u4ef6
+    initDatePicker : function(datePicker){
+      var _self = this;
+
+      BUI.use('bui/calendar',function(Calendar){
+        datePicker.trigger = _self.getInnerControl();
+        datePicker.autoRender = true;
+        datePicker = new Calendar.DatePicker(datePicker);
+        _self.set('datePicker',datePicker);
+        _self.set('isCreatePicker',true);
+        _self.get('children').push(datePicker);
+      });
     },
     /**
      * \u8bbe\u7f6e\u5b57\u6bb5\u7684\u503c
@@ -18829,8 +18528,13 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
       this.addRule('max',v);
       var _self = this,
         datePicker = _self.get('datePicker');
-      if(datePicker && datePicker.set){
-        datePicker.set('maxDate',v);
+      if(datePicker){
+        if(datePicker.set){
+          datePicker.set('maxDate',v);
+        }else{
+          datePicker.maxDate = v;
+        }
+        
       }
     },
     //\u8bbe\u7f6e\u6700\u5c0f\u503c
@@ -18838,8 +18542,12 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
       this.addRule('min',v);
       var _self = this,
         datePicker = _self.get('datePicker');
-      if(datePicker && datePicker.set){
-        datePicker.set('minDate',v);
+      if(datePicker){
+        if(datePicker.set){
+          datePicker.set('minDate',v);
+        }else{
+          datePicker.minDate = v;
+        }
       }
     }
   },{
@@ -18883,6 +18591,7 @@ define('bui/form/datefield',['bui/common','bui/form/basefield','bui/calendar'],f
        * @type {Object|BUI.Calendar.DatePicker}
        */
       datePicker : {
+        shared : false,
         value : {
           
         }
@@ -19656,6 +19365,7 @@ define('bui/form/valid',['bui/common','bui/form/rules'],function (require) {
      * @type {Object}
      */
     rules : {
+      shared : false,
       value : {}
     },
     /**
@@ -19663,6 +19373,7 @@ define('bui/form/valid',['bui/common','bui/form/rules'],function (require) {
      * @type {Object}
      */
     messages : {
+      shared : false,
       value : {}
     },
     /**
@@ -19750,6 +19461,9 @@ define('bui/form/valid',['bui/common','bui/form/rules'],function (require) {
     },
     //\u9a8c\u8bc1\u89c4\u5219
     validRules : function(rules,value){
+      if(!rules){
+        return;
+      }
       var _self = this,
         messages = _self._getValidMessages(),
         error = null;
@@ -20803,10 +20517,9 @@ define('bui/form/fieldgroup',['bui/common','bui/form/group/base','bui/form/group
  * @ignore
  */
 
-define('bui/form/form',['bui/common','bui/toolbar','bui/form/fieldcontainer'],function (require) {
+define('bui/form/form',['bui/common','bui/form/fieldcontainer'],function (require) {
   
   var BUI = require('bui/common'),
-    Bar = require('bui/toolbar').Bar,
     TYPE_SUBMIT = {
       NORMAL : 'normal',
       AJAX : 'ajax',
@@ -20844,10 +20557,16 @@ define('bui/form/form',['bui/common','bui/toolbar','bui/form/fieldcontainer'],fu
         cfg;
       if($.isPlainObject(buttonBar) && _self.get('buttons')){
         cfg = BUI.merge(_self.getDefaultButtonBarCfg(),buttonBar);
-        buttonBar = new Bar(cfg);
-        _self.set('buttonBar',buttonBar);
+        _self._initButtonBar(cfg);
       }
       _self._initSubmitMask();
+    },
+    _initButtonBar : function(cfg){
+      var _self = this;
+      BUI.use('bui/toolbar',function(Toolbar){
+        buttonBar = new Toolbar.Bar(cfg);
+        _self.set('buttonBar',buttonBar);
+      });
     },
     bindUI : function(){
       var _self = this,
@@ -20949,11 +20668,18 @@ define('bui/form/form',['bui/common','bui/toolbar','bui/form/fieldcontainer'],fu
       }
     },
     /**
-     * \u5e8f\u5217\u5316\u8868\u5355\u6210\u5bf9\u8c61
+     * \u5e8f\u5217\u5316\u8868\u5355\u6210\u5bf9\u8c61\uff0c\u6240\u6709\u7684\u952e\u503c\u90fd\u662f\u5b57\u7b26\u4e32
      * @return {Object} \u5e8f\u5217\u5316\u6210\u5bf9\u8c61
      */
     serializeToObject : function(){
       return BUI.FormHelper.serializeToObject(this.get('el')[0]);
+    },
+    /**
+     * serializeToObject \u7684\u7f29\u5199\uff0c\u6240\u6709\u7684\u952e\u503c\u90fd\u662f\u5b57\u7b26\u4e32
+     * @return {Object} \u5e8f\u5217\u5316\u6210\u5bf9\u8c61
+     */
+    toObject : function(){
+      return this.serializeToObject();
     },
     /**
      * \u8868\u5355\u63d0\u4ea4\u524d
@@ -21116,9 +20842,8 @@ define('bui/form/form',['bui/common','bui/toolbar','bui/form/fieldcontainer'],fu
        * @type {BUI.Toolbar.Bar}
        */
       buttonBar : {
-        value : {
-
-        }
+        shared : false,
+        value : {}
       },
       childContainer : {
         value : '.x-form-fields'
@@ -21160,7 +20885,7 @@ define('bui/form/horizontal',['bui/common','bui/form/form'],function (require) {
     Form = require('bui/form/form');
 
   /**
-   * @class BUI.Form.Horizontal
+   * @class BUI.Form.HForm
    * \u6c34\u5e73\u8868\u5355\uff0c\u5b57\u6bb5\u6c34\u5e73\u6392\u5217
    * @extends BUI.Form.Form
    * 
@@ -23033,6 +22758,7 @@ define('bui/select/suggest',['bui/common','bui/select/combox'],function (require
        * @private
        */
       dataCache:{
+        shared:false,
         value:{}
       },
       /**
@@ -23391,10 +23117,10 @@ define('bui/menu/menuitem',['bui/common'],function(require){
    * @private
    * @class BUI.Menu.MenuItemView
    * @mixins BUI.Component.UIBase.ListItemView
-   * @mixins BUI.Component.UIBase.CollapseableView
+   * @mixins BUI.Component.UIBase.collapsableView
    * \u83dc\u5355\u9879\u7684\u89c6\u56fe\u7c7b
    */
-  var menuItemView = Component.View.extend([UIBase.ListItemView,UIBase.CollapseableView],{
+  var menuItemView = Component.View.extend([UIBase.ListItemView,UIBase.CollapsableView],{
 
     _uiSetOpen : function (v) {
       var _self = this,
@@ -23418,7 +23144,7 @@ define('bui/menu/menuitem',['bui/common'],function(require){
    * @extends BUI.Component.Controller
    * @mixins BUI.Component.UIBase.ListItem
    */
-  var menuItem = Component.Controller.extend([UIBase.ListItem,UIBase.Collapseable],{
+  var menuItem = Component.Controller.extend([UIBase.ListItem,UIBase.Collapsable],{
     /**
      * \u6e32\u67d3
      * @protected
@@ -24108,6 +23834,268 @@ define('bui/tab',['bui/common','bui/tab/tab','bui/tab/tabitem','bui/tab/navtabit
   });
 
   return Tab;
+});/**
+ * @fileOverview \u62e5\u6709\u5185\u5bb9\u7684\u6807\u7b7e\u9879\u7684\u6269\u5c55\u7c7b\uff0c\u6bcf\u4e2a\u6807\u7b7e\u9879\u90fd\u6709\u4e00\u4e2a\u5206\u79bb\u7684\u5bb9\u5668\u4f5c\u4e3a\u9762\u677f
+ * @ignore
+ */
+
+define('bui/tab/panelitem',function (requrie) {
+
+  /**
+   * @class BUI.Tab.PanelItem
+   * \u5305\u542b\u9762\u677f\u7684\u6807\u7b7e\u9879\u7684\u6269\u5c55
+   */
+  var PanelItem = function(){
+
+  };
+
+  PanelItem.ATTRS = {
+
+    /**
+     * \u6807\u7b7e\u9879\u5bf9\u5e94\u7684\u9762\u677f\u5bb9\u5668\uff0c\u5f53\u6807\u7b7e\u9009\u4e2d\u65f6\uff0c\u9762\u677f\u663e\u793a
+     * @cfg {String|HTMLElement|jQuery} panel
+     * @internal \u9762\u677f\u5c5e\u6027\u4e00\u822c\u7531 tabPanel\u8bbe\u7f6e\u800c\u4e0d\u5e94\u8be5\u7531\u7528\u6237\u624b\u5de5\u8bbe\u7f6e
+     */
+    /**
+     * \u6807\u7b7e\u9879\u5bf9\u5e94\u7684\u9762\u677f\u5bb9\u5668\uff0c\u5f53\u6807\u7b7e\u9009\u4e2d\u65f6\uff0c\u9762\u677f\u663e\u793a
+     * @type {String|HTMLElement|jQuery}
+     * @readOnly
+     */
+    panel : {
+
+    },
+    /**
+     * \u9762\u677f\u7684\u5185\u5bb9
+     * @type {String}
+     */
+    panelContent : {
+
+    },
+    /**
+     * \u5173\u8054\u9762\u677f\u663e\u793a\u9690\u85cf\u7684\u5c5e\u6027\u540d
+     * @protected
+     * @type {string}
+     */
+    panelVisibleStatus : {
+      value : 'selected'
+    },
+    /**
+       * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
+       * <pre>
+       *  {
+       *   property : 'panelContent',
+       *   lazyLoad : {
+       *       event : 'active'
+       *   },
+       *     loadMask : {
+       *       el : _self.get('panel')
+       *   }
+       * }
+       * </pre>
+       * @type {Object}
+       */
+      defaultLoaderCfg  : {
+        valueFn :function(){
+          var _self = this,
+            eventName = _self._getVisibleEvent();
+          return {
+            property : 'panelContent',
+            autoLoad : false,
+            lazyLoad : {
+              event : eventName
+            },
+            loadMask : {
+              el : _self.get('panel')
+            }
+          }
+        } 
+      },
+    /**
+     * \u9762\u677f\u662f\u5426\u8ddf\u968f\u6807\u7b7e\u4e00\u8d77\u91ca\u653e
+     * @type {Boolean}
+     */
+    panelDestroyable : {
+      value : true
+    }
+  }
+
+
+  BUI.augment(PanelItem,{
+
+    __renderUI : function(){
+      this._resetPanelVisible();
+    },
+    __bindUI : function(){
+      var _self = this,
+      eventName = _self._getVisibleEvent();
+
+      _self.on(eventName,function(ev){
+        _self._setPanelVisible(ev.newVal);
+      });
+    },
+    _resetPanelVisible : function(){
+      var _self = this,
+        status = _self.get('panelVisibleStatus'),
+        visible = _self.get(status);
+      _self._setPanelVisible(visible);
+    },
+    //\u83b7\u53d6\u663e\u793a\u9690\u85cf\u7684\u4e8b\u4ef6
+    _getVisibleEvent : function(){
+      var _self = this,
+        status = _self.get('panelVisibleStatus');
+
+      return 'after' + BUI.ucfirst(status) + 'Change';;
+    },
+    /**
+     * @private
+     * \u8bbe\u7f6e\u9762\u677f\u7684\u53ef\u89c1
+     * @param {Boolean} visible \u663e\u793a\u6216\u8005\u9690\u85cf
+     */
+    _setPanelVisible : function(visible){
+      var _self = this,
+        panel = _self.get('panel'),
+        method = visible ? 'show' : 'hide';
+      if(panel){
+        $(panel)[method]();
+      }
+    },
+    __destructor : function(){
+      var _self = this,
+        panel = _self.get('panel');
+      if(panel && _self.get('panelDestroyable')){
+        $(panel).remove();
+      }
+    },
+    _setPanelContent : function(panel,content){
+      var panelEl = $(panel);
+      $(panel).html(content);
+    },
+    _uiSetPanelContent : function(v){
+      var _self = this,
+        panel = _self.get('panel');
+      //$(panel).html(v);
+      _self._setPanelContent(panel,v);
+    },
+    //\u8bbe\u7f6epanel
+    _uiSetPanel : function(v){
+      var _self = this,
+        content = _self.get('panelContent');
+      if(content){
+        _self._setPanelContent(v,content);
+      }
+      _self._resetPanelVisible();
+    }
+  });
+
+  return PanelItem;
+
+});/**
+ * @fileOverview \u62e5\u6709\u591a\u4e2a\u9762\u677f\u7684\u5bb9\u5668
+ * @ignore
+ */
+
+define('bui/tab/panels',function (require) {
+  
+  /**
+   * @class BUI.Tab.Panels
+   * \u5305\u542b\u9762\u677f\u7684\u6807\u7b7e\u7684\u6269\u5c55\u7c7b
+   */
+  var Panels = function(){
+    //this._initPanels();
+  };
+
+  Panels.ATTRS = {
+
+    /**
+     * \u9762\u677f\u7684\u6a21\u677f
+     * @type {String}
+     */
+    panelTpl : {
+
+    },
+    /**
+     * \u9762\u677f\u7684\u5bb9\u5668\uff0c\u5982\u679c\u662fid\u76f4\u63a5\u901a\u8fc7id\u67e5\u627e\uff0c\u5982\u679c\u662f\u975eid\uff0c\u90a3\u4e48\u4eceel\u5f00\u59cb\u67e5\u627e,\u4f8b\u5982\uff1a
+     *   -#id \uff1a \u901a\u8fc7$('#id')\u67e5\u627e
+     *   -.cls : \u901a\u8fc7 this.get('el').find('.cls') \u67e5\u627e
+     *   -DOM/jQuery \uff1a\u4e0d\u9700\u8981\u67e5\u627e
+     * @type {String|HTMLElement|jQuery}
+     */
+    panelContainer : {
+      
+    },
+    /**
+     * panel \u9762\u677f\u4f7f\u7528\u7684\u6837\u5f0f\uff0c\u5982\u679c\u521d\u59cb\u5316\u65f6\uff0c\u5bb9\u5668\u5185\u5df2\u7ecf\u5b58\u5728\u6709\u8be5\u6837\u5f0f\u7684DOM\uff0c\u5219\u4f5c\u4e3a\u9762\u677f\u4f7f\u7528
+     * \u5bf9\u5e94\u540c\u4e00\u4e2a\u4f4d\u7f6e\u7684\u6807\u7b7e\u9879,\u5982\u679c\u4e3a\u7a7a\uff0c\u9ed8\u8ba4\u53d6\u9762\u677f\u5bb9\u5668\u7684\u5b50\u5143\u7d20
+     * @type {String}
+     */
+    panelCls : {
+
+    }
+  };
+
+  BUI.augment(Panels,{
+
+    __renderUI : function(){
+      var _self = this,
+        children = _self.get('children'),
+        panelContainer = _self._initPanelContainer(),
+        panelCls = _self.get('panelCls'),
+        panels = panelCls ? panelContainer.find('.' + panels) : panelContainer.children();
+
+      BUI.each(children,function(item,index){
+        var panel = panels[index];
+        _self._initPanelItem(item,panel);
+      });
+    },
+
+    __bindUI : function(){
+      var _self = this;
+      _self.on('beforeAddChild',function(ev){
+        var item = ev.child;
+        _self._initPanelItem(item);
+      });
+    },
+    //\u521d\u59cb\u5316\u5bb9\u5668
+    _initPanelContainer : function(){
+      var _self = this,
+        panelContainer = _self.get('panelContainer');
+      if(panelContainer && BUI.isString(panelContainer)){
+        if(panelContainer.indexOf('#') == 0){ //\u5982\u679c\u662fid
+          panelContainer = $(panelContainer);
+        }else{
+          panelContainer = _self.get('el').find(panelContainer);
+        }
+        _self.setInternal('panelContainer',panelContainer);
+      }
+      return panelContainer;
+    },
+    //\u521d\u59cb\u5316\u9762\u677f\u914d\u7f6e\u4fe1\u606f
+    _initPanelItem : function(item,panel){
+      var _self = this;
+
+      if(item.set){
+        if(!item.get('panel')){
+          panel = panel || _self._getPanel(item.get('userConfig'));
+          item.set('panel',panel);
+        }
+      }else{
+        if(!item.panel){
+          panel = panel || _self._getPanel(item);
+          item.panel = panel;
+        }
+      }
+    },
+    //\u83b7\u53d6\u9762\u677f
+    _getPanel : function(item){
+      var _self = this,
+        panelContainer = _self.get('panelContainer'),
+        panelTpl = BUI.substitute(_self.get('panelTpl'),item);
+      
+      return $(panelTpl).appendTo(panelContainer);
+    }
+  });
+
+  return Panels;
 });/**
  * @fileOverview \u5bfc\u822a\u9879
  * @author dxq613@gmail.com
@@ -25189,11 +25177,13 @@ define('bui/tab/tab',['bui/common'],function (require) {
  * @ignore
  */
 
-define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require) {
+define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem','bui/tab/panelitem'],function (require) {
   
 
   var BUI = require('bui/common'),
     TabItem = require('bui/tab/tabitem'),
+    PanelItem = require('bui/tab/panelitem'),
+    CLS_TITLE = 'bui-tab-item-text',
     Component = BUI.Component;
 
   /**
@@ -25202,7 +25192,13 @@ define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require
    * @extends BUI.Tab.TabItemView
    * \u5b58\u5728\u9762\u677f\u7684\u6807\u7b7e\u9879\u89c6\u56fe\u5c42\u5bf9\u8c61
    */
-  var itemView = TabItem.View.extend({
+  var itemView = TabItem.View.extend([Component.UIBase.Close.View],{
+    _uiSetTitle : function(v){
+      var _self = this,
+        el = _self.get('el'),
+        titleEl = el.find('.' + CLS_TITLE);
+      titleEl.text(v);
+    }
   },{
     xclass:'tab-panel-item-view'
   });
@@ -25212,98 +25208,51 @@ define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require
    * \u6807\u7b7e\u9879
    * @class BUI.Tab.TabPanelItem
    * @extends BUI.Tab.TabItem
+   * @mixins BUI.Tab.PanelItem
+   * @mixins BUI.Component.UIBase.Close
    */
-  var item = TabItem.extend({
+  var item = TabItem.extend([PanelItem,Component.UIBase.Close],{
     
-    renderUI : function(){
-      var _self = this,
-        selected = _self.get('selected');
-        _self._setPanelVisible(selected);
-    },
-    //\u8bbe\u7f6e\u9762\u677f\u662f\u5426\u53ef\u89c1
-    _setPanelVisible : function(visible){
-      var _self = this,
-        panel = _self.get('panel'),
-        method = visible ? 'show' : 'hide';
-      if(panel){
-        $(panel)[method]();
-      }
-    },
-    //\u9009\u4e2d\u6807\u7b7e\u9879\u65f6\u663e\u793a\u9762\u677f
-    _uiSetSelected : function(v){
-      this._setPanelVisible(v);
-    },
-    destructor: function(){
-      var _self = this,
-        panel = _self.get('panel');
-      if(panel && _self.get('panelDestroyable')){
-        $(panel).remove();
-      }
-    },
-    _uiSetPanelContent : function(v){
-      var _self = this,
-        panel = _self.get('panel');
-      $(panel).html(v);
-    }
   },{
     ATTRS : 
     {
       /**
-       * \u6807\u7b7e\u9879\u5bf9\u5e94\u7684\u9762\u677f\u5bb9\u5668\uff0c\u5f53\u6807\u7b7e\u9009\u4e2d\u65f6\uff0c\u9762\u677f\u663e\u793a
-       * @cfg {String|HTMLElement|jQuery} panel
-       * @internal \u9762\u677f\u5c5e\u6027\u4e00\u822c\u7531 tabPanel\u8bbe\u7f6e\u800c\u4e0d\u5e94\u8be5\u7531\u7528\u6237\u624b\u5de5\u8bbe\u7f6e
+       * \u5173\u95ed\u65f6\u76f4\u63a5\u9500\u6bc1\u6807\u7b7e\u9879\uff0c\u6267\u884cremove\u65b9\u6cd5
+       * @type {String}
+       */
+      closeAction : {
+        value : 'remove'
+      },
+      /**
+       * \u6807\u9898
+       * @type {String} title 
        */
       /**
-       * \u6807\u7b7e\u9879\u5bf9\u5e94\u7684\u9762\u677f\u5bb9\u5668\uff0c\u5f53\u6807\u7b7e\u9009\u4e2d\u65f6\uff0c\u9762\u677f\u663e\u793a
-       * @type {String|HTMLElement|jQuery}
-       * @readOnly
+       * \u6807\u9898
+       * @type {String}
+       * <code>
+       *   tab.getItem('id').set('title','new title');
+       * </code>
        */
-      panel : {
+      title : {
+        view : true,
+        sync : false
 
       },
       /**
-       * panel\u7684\u5185\u5bb9
-       * @property {String}
+       * \u6807\u7b7e\u9879\u7684\u6a21\u677f,\u56e0\u4e3a\u4e4b\u524d\u6ca1\u6709title\u5c5e\u6027\uff0c\u6240\u4ee5\u9ed8\u8ba4\u7528text\uff0c\u6240\u4ee5\u4e5f\u517c\u5bb9text\uff0c\u4f46\u662f\u5728\u6700\u597d\u76f4\u63a5\u4f7f\u7528title\uff0c\u65b9\u4fbf\u66f4\u6539
+       * @type {String}
        */
-      panelContent : {
-
+      tpl : {
+        value : '<span class="' + CLS_TITLE + '">{text}{title}</span>'
       },
-      /**
-       * \u9ed8\u8ba4\u7684\u52a0\u8f7d\u63a7\u4ef6\u5185\u5bb9\u7684\u914d\u7f6e,\u9ed8\u8ba4\u503c\uff1a
-       * <pre>
-       *  {
-       *   property : 'panelContent',
-       *   lazyLoad : {
-       *       event : 'active'
-       *   },
-       *     loadMask : {
-       *       el : _self.get('panel')
-       *   }
-       * }
-       * </pre>
-       * @type {Object}
-       */
-      defaultLoaderCfg  : {
-        valueFn :function(){
-          var _self = this;
-          return {
-            property : 'panelContent',
-            autoLoad : false,
-            lazyLoad : {
-              event : 'afterSelectedChange'
-            },
-            loadMask : {
-              el : _self.get('panel')
-            }
-          }
-        } 
+      closeable : {
+        value : false
       },
-      /**
-       * \u79fb\u9664\u6807\u7b7e\u9879\u65f6\u662f\u5426\u79fb\u9664\u9762\u677f\uff0c\u9ed8\u8ba4\u4e3a false
-       * @type {Boolean}
-       */
-      panelDestroyable : {
-        value : true
+      events : {
+        value : {
+          beforeclosed : true
+        }
       },
       xview:{
         value:itemView
@@ -25321,10 +25270,11 @@ define('bui/tab/tabpanelitem',['bui/common','bui/tab/tabitem'],function (require
  * @ignore
  */
 
-define('bui/tab/tabpanel',['bui/common','bui/tab/tab'],function (require) {
+define('bui/tab/tabpanel',['bui/common','bui/tab/tab','bui/tab/panels'],function (require) {
   
   var BUI = require('bui/common'),
-    Tab = require('bui/tab/tab');
+    Tab = require('bui/tab/tab'),
+    Panels = require('bui/tab/panels');
 
   /**
    * \u5e26\u6709\u9762\u677f\u7684\u5207\u6362\u6807\u7b7e
@@ -25347,47 +25297,65 @@ define('bui/tab/tabpanel',['bui/common','bui/tab/tab'],function (require) {
    * </code></pre>
    * @class BUI.Tab.TabPanel
    * @extends BUI.Tab.Tab
+   * @mixins BUI.Tab.Panels
    */
-  var tabPanel = Tab.extend({
-    initializer : function(){
-      var _self = this,
-        children = _self.get('children'),
-        panelContainer = $(_self.get('panelContainer')),
-        panelCls = _self.get('panelCls'),
-        panels = panelCls ? panelContainer.find('.' + panels) : panelContainer.children();
+  var tabPanel = Tab.extend([Panels],{
 
-      BUI.each(children,function(item,index){
-        if(item.set){
-          item.set('panel',panels[index]);
-        }else{
-          item.panel = panels[index];
-        }
+    bindUI : function(){
+      var _self = this;
+      //\u5173\u95ed\u6807\u7b7e
+      _self.on('beforeclosed',function(ev){
+        var item = ev.target;
+        _self._beforeClosedItem(item);
       });
+    },
+    //\u5173\u95ed\u6807\u7b7e\u9009\u9879\u524d
+    _beforeClosedItem : function(item){
+      if(!item.get('selected')){ //\u5982\u679c\u672a\u9009\u4e2d\u4e0d\u6267\u884c\u4e0b\u9762\u7684\u9009\u4e2d\u64cd\u4f5c
+        return;
+      }
+
+      var _self = this,
+        index = _self.indexOfItem(item),
+        count = _self.getItemCount(),
+        preItem,
+        nextItem;
+      if(index !== count - 1){ //\u4e0d\u662f\u6700\u540e\u4e00\u4e2a\uff0c\u5219\u6fc0\u6d3b\u6700\u540e\u4e00\u4e2a
+        nextItem = _self.getItemAt(index + 1);
+        _self.setSelected(nextItem);
+      }else if(index !== 0){
+        preItem = _self.getItemAt(index - 1);
+        _self.setSelected(preItem);
+      }
     }
+
   },{
     ATTRS : {
-
+      elTagName : {
+        value : 'div'
+      },
+      childContainer : {
+        value : 'ul'
+      },
+      tpl : {
+        value : '<div class="tab-panel-inner"><ul></ul><div class="tab-panels"></div></div>'
+      },
+      panelTpl : {
+        value : '<div></div>'
+      },
+      /**
+       * \u9ed8\u8ba4\u7684\u9762\u677f\u5bb9\u5668
+       * @cfg {String} [panelContainer='.tab-panels']
+       */
+      panelContainer : {
+        value : '.tab-panels'
+      },
       /**
        * \u9ed8\u8ba4\u5b50\u63a7\u4ef6\u7684xclass
        * @type {String}
        */
       defaultChildClass:{
         value : 'tab-panel-item'
-      },
-      /**
-       * \u9762\u677f\u7684\u5bb9\u5668
-       * @type {String|HTMLElement|jQuery}
-       */
-      panelContainer : {
-        
-      },
-      /**
-       * panel \u9762\u677f\u4f7f\u7528\u7684\u6837\u5f0f\uff0c\u5982\u679c\u521d\u59cb\u5316\u65f6\uff0c\u5bb9\u5668\u5185\u5df2\u7ecf\u5b58\u5728\u6709\u8be5\u6837\u5f0f\u7684DOM\uff0c\u5219\u4f5c\u4e3a\u9762\u677f\u4f7f\u7528
-       * \u5bf9\u5e94\u540c\u4e00\u4e2a\u4f4d\u7f6e\u7684\u6807\u7b7e\u9879,\u5982\u679c\u4e3a\u7a7a\uff0c\u9ed8\u8ba4\u53d6\u9762\u677f\u5bb9\u5668\u7684\u5b50\u5143\u7d20
-       * @type {String}
-       */
-      panelCls : {
-
       }
     }
   },{
@@ -27798,8 +27766,8 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
         children = _self.get('children'),
         header = new Header(),
         panel = new Panel(),
-        footer = _self.get('footer') || _self._createFooter(),
-        monthPicker = _self.get('monthPicker') || _self._createMonthPicker();
+        footer = _self.get('footer') || _self._createFooter();/*,
+        monthPicker = _self.get('monthPicker') || _self._createMonthPicker();*/
 
 
       //\u6dfb\u52a0\u5934
@@ -27807,12 +27775,12 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
       //\u6dfb\u52a0panel
       children.push(panel);
       children.push(footer);
-      children.push(monthPicker);
+      //children.push(monthPicker);
 
       _self.set('header',header);
       _self.set('panel',panel);
       _self.set('footer',footer);
-      _self.set('monthPicker',monthPicker);
+      //_self.set('monthPicker',monthPicker);
     },
     renderUI : function(){
       var _self = this,
@@ -27848,7 +27816,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
       });
 
       header.on('headerclick',function(){
-        var monthPicker = _self.get('monthPicker');
+        var monthPicker = _self.get('monthpicker') || _self._createMonthPicker();
         monthPicker.set('year',header.get('year'));
         monthPicker.set('month',header.get('month'));
         monthPicker.show();
@@ -27925,9 +27893,10 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
     },
     //\u521b\u5efa\u9009\u62e9\u6708\u7684\u63a7\u4ef6
     _createMonthPicker: function(){
-      var _self = this;
-
-      return new MonthPicker({
+      var _self = this,
+        monthpicker;
+      monthpicker = new MonthPicker({
+        render : _self.get('el'),
         effect : {
           effect:'slide',
           duration:300
@@ -27942,6 +27911,9 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
           this.hide();
         }
       });
+      _self.set('monthpicker',monthpicker);
+      _self.get('children').push(monthpicker);
+      return monthpicker;
     },
     //\u521b\u5efa\u5e95\u90e8\u6309\u94ae\u680f
     _createFooter : function(){
@@ -27968,7 +27940,7 @@ define('bui/calendar/calendar',['bui/picker','bui/calendar/monthpicker','bui/cal
           xclass:'bar-item-button',
           text:'\u4eca\u5929',
           btnCls: 'button button-small',
-		  id:'todayBtn',
+		      id:'todayBtn',
           listeners:{
             click:function(){
               var day = today();
@@ -28227,24 +28199,34 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
   var datepicker = Picker.extend({
 
     initializer:function(){
+      
+    },
+    /**
+     * @protected
+     * \u521d\u59cb\u5316\u5185\u90e8\u63a7\u4ef6
+     */
+    createControl : function(){
       var _self = this,
         children = _self.get('children'),
         calendar = new Calendar({
+          render : _self.get('el'),
           showTime : _self.get('showTime'),
           lockTime : _self.get('lockTime'),
           minDate: _self.get('minDate'),
-          maxDate: _self.get('maxDate')
+          maxDate: _self.get('maxDate'),
+          autoRender : true
         });
-	
-	  if (!_self.get('dateMask')) {
+
+      if (!_self.get('dateMask')) {
         if (_self.get('showTime')) {
             _self.set('dateMask', 'yyyy-mm-dd HH:MM:ss');
         } else {
             _self.set('dateMask', 'yyyy-mm-dd');
         }
-       }	
+       }  
       children.push(calendar);
       _self.set('calendar',calendar);
+      return calendar;
     },
     /**
      * \u8bbe\u7f6e\u9009\u4e2d\u7684\u503c
@@ -28255,6 +28237,9 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
      * @protected
      */
     setSelectedValue : function(val){
+      if(!this.get('calendar')){
+        return;
+      }
       var _self = this,
         calendar = this.get('calendar'),
         date = DateUtil.parse(val,_self.get("dateMask"));
@@ -28276,6 +28261,9 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
      * @return {String} \u9009\u4e2d\u7684\u503c
      */
     getSelectedValue : function(){
+      if(!this.get('calendar')){
+        return null;
+      }
       var _self = this, 
         calendar = _self.get('calendar'),
       date =  DateUtil.getDate(calendar.get('selectedDate'));
@@ -28292,6 +28280,9 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
      * @return {String} \u9009\u4e2d\u7684\u6587\u672c
      */
     getSelectedText : function(){
+      if(!this.get('calendar')){
+        return '';
+      }
       return DateUtil.format(this.getSelectedValue(),this._getFormatType());
     },
     _getFormatType : function(){
@@ -28299,11 +28290,17 @@ define('bui/calendar/datepicker',['bui/common','bui/picker','bui/calendar/calend
     },
     //\u8bbe\u7f6e\u6700\u5927\u503c
     _uiSetMaxDate : function(v){
+      if(!this.get('calendar')){
+        return null;
+      }
       var _self = this;
       _self.get('calendar').set('maxDate',v);
     },
     //\u8bbe\u7f6e\u6700\u5c0f\u503c
     _uiSetMinDate : function(v){
+      if(!this.get('calendar')){
+        return null;
+      }
       var _self = this;
       _self.get('calendar').set('minDate',v);
     }
@@ -29168,6 +29165,7 @@ define('bui/editor/dialog',['bui/overlay','bui/editor/mixin'],function (require)
        * @type {*}
        */
       emptyValue : {
+        shared : false,
         value : {}
       },
       /**
@@ -33435,6 +33433,7 @@ define('bui/grid/plugins/editing',function (require) {
      * @type {Object}
      */
     editors : {
+      shared:false,
       value : []
     },
     /**
@@ -35139,7 +35138,7 @@ define('bui/tree/treemixin',['bui/common','bui/data'],function (require) {
       if(!node){
         return false;
       }
-      return  node[this.get('checkedField')];//this.getStatusValue(node,'checked');
+      return  !!node[this.get('checkedField')];//this.getStatusValue(node,'checked');
     },
     /**
      * \u5207\u6362\u663e\u793a\u9690\u85cf
