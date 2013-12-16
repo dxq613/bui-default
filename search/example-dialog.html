@@ -1,4 +1,3 @@
-
 <!DOCTYPE HTML>
 <html>
  <head>
@@ -88,7 +87,7 @@
           <div class="control-group span8">
             <label class="control-label"><s>*</s>学生班级</label>
             <div class="controls">
-              <input name="name" type="grade" data-rules="{required:true}" class="input-normal control-text">
+              <input name="grad" type="grade" data-rules="{required:true}" class="input-normal control-text">
             </div>
           </div>
           <div class="control-group span8">
@@ -110,10 +109,7 @@
       </form>
     </div>
   <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
-  <script type="text/javascript" src="../assets/js/bui.js"></script>
- <!--
-  <script type="text/javascript" src="http://localhost/works/bui/assets/js/build/seed-min.js"></script>
--->
+  <script type="text/javascript" src="../assets/js/bui-min.js"></script>
   <script type="text/javascript" src="../assets/js/config-min.js"></script>
   <script type="text/javascript">
     BUI.use('common/page');
@@ -131,22 +127,8 @@
     var enumObj = {"1":"男","0":"女"},
       editing = new BUI.Grid.Plugins.DialogEditing({
         contentId : 'content', //设置隐藏的Dialog内容
-        triggerCls : 'btn-edit', //触发显示Dialog的样式
-        editor : {
-          success : function(){ //点击确认的时候触发，可以进行异步提交
-            /**/
-            var editor = this,
-              record = editing.get('record'), // 获取编辑的记录
-              data = editor.get('form').serializeToObject(); //编辑完成的记录
-            editor.valid();
-            if(editor.isValid()){
-              submit(BUI.mix(record,data),editor);
-            }
-            /*var form = editor.get('form'); //也可以直接使用表单同步提交的方式
-            form.submit();
-            */
-          }
-        }
+        autoSave : true, //添加数据或者修改数据时，自动保存
+        triggerCls : 'btn-edit'
       }),
       columns = [
           {title:'学生编号',dataIndex:'id',width:80,renderer:function(v){
@@ -174,7 +156,17 @@
             return editStr +  editStr1 + delStr;
           }}
         ],
-      store = Search.createStore('../data/student.json'),
+      store = Search.createStore('../data/student.json',{
+        proxy : {
+          save : { //也可以是一个字符串，那么增删改，都会往那么路径提交数据，同时附加参数saveType
+            addUrl : '../data/add.json',
+            updateUrl : '../data/edit.json',
+            removeUrl : '../data/del.php'
+          },
+          method : 'POST'
+        },
+        autoSync : true //保存数据后，自动更新
+      }),
       gridCfg = Search.createGridCfg(columns,{
         tbar : {
           items : [
@@ -197,23 +189,6 @@
       editing.add(newData,'name'); //添加记录后，直接编辑
     }
 
-    function submit(record,editor){
-      $.ajax({
-        url : '../data/edit.json',
-        dataType : 'json',
-        data : record,
-        success : function(data){
-          if(data.success){ //编辑、新建成功
-            editor.accept(); //隐藏弹出框
-            search.load();
-          }else{ //编辑失败失败
-            var msg = data.msg;
-            BUI.Message.Alert('错误原因:' + msg);
-          }
-        }
-      });
-    }
-
     //删除操作
     function delFunction(){
       var selections = grid.getSelection();
@@ -228,18 +203,7 @@
 
       if(ids.length){
         BUI.Message.Confirm('确认要删除选中的记录么？',function(){
-          $.ajax({
-            url : '../data/del.php',
-            dataType : 'json',
-            data : {ids : ids},
-            success : function(data){
-              if(data.success){ //删除成功
-                search.load();
-              }else{ //删除失败
-                BUI.Message.Alert('删除失败！');
-              }
-            }
-        });
+          store.save('remove',{ids : ids});
         },'question');
       }
     }
