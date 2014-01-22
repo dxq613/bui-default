@@ -38,6 +38,7 @@
 
   if(!baseUrl){//如果未指定项目路径，进行匹配。
     baseUrl = getBaseUrl();
+    baseUrl =  baseUrl.replace(/(.*)\/$/,'$1');
   }
 
   BUI.config({
