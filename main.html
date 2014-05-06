@@ -28,6 +28,7 @@
         <li class="nav-item"><div class="nav-item-inner nav-order">表单页</div></li>
         <li class="nav-item"><div class="nav-item-inner nav-inventory">搜索页</div></li>
         <li class="nav-item"><div class="nav-item-inner nav-supplier">详情页</div></li>
+        <li class="nav-item"><div class="nav-item-inner nav-marketing">图表</div></li>
       </ul>
     </div>
     <ul id="J_NavContent" class="dl-tab-conten">
@@ -121,6 +122,19 @@
                   {id:'introduce',text:'详情页面简介',href:'detail/introduce.html'}
                 ]
               }]
+          },{
+            id : 'chart',
+            menu : [{
+              text : '图表',
+              items:[
+                  {id:'code',text:'引入代码',href:'chart/code.html'},
+                  {id:'line',text:'折线图',href:'chart/line.html'},
+                  {id:'area',text:'区域图',href:'chart/area.html'},
+                  {id:'column',text:'柱状图',href:'chart/column.html'},
+                  {id:'pie',text:'饼图',href:'chart/pie.html'}, 
+                  {id:'radar',text:'雷达图',href:'chart/radar.html'}
+              ]
+            }]
           }];
       new PageUtil.MainPage({
         modulesConfig : config

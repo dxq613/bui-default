@@ -1,0 +1,176 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <title> 区域图</title>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+       <link href="../assets/css/dpl-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/bui-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/page-min.css" rel="stylesheet" type="text/css" />   <!-- 下面的样式，仅是为了显示代码，而不应该在项目中使用-->
+   <link href="../assets/css/prettify.css" rel="stylesheet" type="text/css" />
+   <style type="text/css">
+    code {
+      padding: 0px 4px;
+      color: #d14;
+      background-color: #f7f7f9;
+      border: 1px solid #e1e1e8;
+    }
+   </style>
+ </head>
+ <body>
+  
+    
+    <div class="container">
+      <div class="row">
+        <h2>区域图示例</h2>
+        <div class="span24" id="canvas"></div>
+      </div>
+    
+
+      <div class="row">
+        <div class="span8">
+          <h2>简介</h2>
+          <p>这里仅仅是介绍最简单区域图使用，包括：</p>
+          <ol>
+            <li>创建区域图</li>
+            <li>声明标题、副标题、坐标轴、数据序列</li>
+            <li>plotCfg声明边框、tooltip标示提示信息</li>
+            <li>多个区域图的共同属性</li>
+          </ol>
+          <p>更多的区域图示例请参考：<a href="http://builive.com/chart/area.php">区域图demo</a></p>
+        </div>
+        <div class="span16">
+          <h2>代码</h2>
+          <pre class="prettyprint linenums">
+  BUI.use('bui/chart',function (Chart) {
+        
+          var chart = new Chart.Chart({
+            render : '#canvas',
+            width : 950,
+            height : 500,
+            plotCfg : {
+              margin : [50,50,80] //画板的边距
+            },
+            title : {
+              text : '区域图'
+            },
+            subTitle : {
+              text : 'Source: WorldClimate.com'
+            },
+            seriesOptions : { //设置多个序列共同的属性
+              areaCfg : { //如果数据序列未指定类型，则默认为指定了xxCfg的类型，否则都默认是line
+                markers : {
+                  single : true
+                },
+                pointStart: 1940,
+                pointInterval: 1
+   
+              }
+            },
+            tooltip : {
+              valueSuffix : '°C',
+              shared : true,
+              crosshairs : true
+            },
+            series : [{
+              name: 'USA',
+              data: [null, null, null, null, null, 6 , 11, 32, 110, 235, 369, 640,1005, 1436,
+                      2063, 3057, 4618, 6444, 9822, 15468, 20434, 24126,27387, 29459, 31056, 31982,
+                      32040, 31233, 29224, 27342, 26662,26956, 27912, 28999, 28965, 27826, 25579,
+                      25722, 24826, 24605,24304, 23464, 23708, 24099, 24357, 24237, 24401, 24344,
+                      23586,22380, 21004, 17287, 14747, 13076, 12555, 12144, 11009, 10950,
+                      10871, 10824, 10577, 10527, 10475, 10421, 10358, 10295, 10104 
+                  ]
+              }, {
+                  name: 'USSR/Russia',
+                  data: [null, null, null, null, null, null, null , null , null ,null,5, 25, 50,
+                    120, 150, 200, 426, 660, 869, 1060, 1605, 2471, 3322,4238, 5221, 6129,
+                    7089, 8339, 9399, 10538, 11643, 13092, 14478,15915, 17385, 19055, 21205,
+                    23044, 25393, 27935, 30062, 32049,33952, 35804, 37431, 39197, 45000, 43000,
+                    41000, 39000, 37000,35000, 33000, 31000, 29000, 27000, 25000, 24000, 23000,
+                    22000,21000, 20000, 19000, 18000, 18000, 17000, 16000
+                  ]
+              }]
+                
+          });
+   
+          chart.render();
+      });
+   
+          </pre>
+        </div>
+      </div>
+    </div>
+  <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
+  <script type="text/javascript" src="../assets/js/bui-min.js"></script>
+
+  <script type="text/javascript" src="../assets/js/config-min.js"></script>
+  <script type="text/javascript">
+    BUI.use('common/page');
+
+    BUI.use('bui/chart',function (Chart) {
+      
+        var chart = new Chart.Chart({
+          render : '#canvas',
+          width : 950,
+          height : 500,
+          plotCfg : {
+            margin : [50,50,80] //画板的边距
+          },
+          title : {
+            text : '区域图'
+          },
+          subTitle : {
+            text : 'Source: WorldClimate.com'
+          },
+          seriesOptions : { //设置多个序列共同的属性
+            areaCfg : { //如果数据序列未指定类型，则默认为指定了xxCfg的类型，否则都默认是line
+              markers : {
+                single : true
+              },
+              pointStart: 1940,
+              pointInterval: 1
+ 
+            }
+          },
+          tooltip : {
+            valueSuffix : '°C',
+            shared : true,
+            crosshairs : true
+          },
+          series : [{
+            name: 'USA',
+            data: [null, null, null, null, null, 6 , 11, 32, 110, 235, 369, 640,1005, 1436,
+                    2063, 3057, 4618, 6444, 9822, 15468, 20434, 24126,27387, 29459, 31056, 31982,
+                    32040, 31233, 29224, 27342, 26662,26956, 27912, 28999, 28965, 27826, 25579,
+                    25722, 24826, 24605,24304, 23464, 23708, 24099, 24357, 24237, 24401, 24344,
+                    23586,22380, 21004, 17287, 14747, 13076, 12555, 12144, 11009, 10950,
+                    10871, 10824, 10577, 10527, 10475, 10421, 10358, 10295, 10104 
+                ]
+            }, {
+                name: 'USSR/Russia',
+                data: [null, null, null, null, null, null, null , null , null ,null,5, 25, 50,
+                  120, 150, 200, 426, 660, 869, 1060, 1605, 2471, 3322,4238, 5221, 6129,
+                  7089, 8339, 9399, 10538, 11643, 13092, 14478,15915, 17385, 19055, 21205,
+                  23044, 25393, 27935, 30062, 32049,33952, 35804, 37431, 39197, 45000, 43000,
+                  41000, 39000, 37000,35000, 33000, 31000, 29000, 27000, 25000, 24000, 23000,
+                  22000,21000, 20000, 19000, 18000, 18000, 17000, 16000
+                ]
+            }]
+              
+        });
+ 
+        chart.render();
+    });
+
+  </script>
+  
+  <!-- 仅仅为了显示代码使用，不要在项目中引入使用-->
+  <script type="text/javascript" src="../assets/js/prettify.js"></script>
+  <script type="text/javascript">
+    //$(function () {
+      prettyPrint();
+    //});
+  </script>  
+
+<body>
+</html>  

@@ -1,0 +1,167 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <title> 饼图</title>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+       <link href="../assets/css/dpl-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/bui-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/page-min.css" rel="stylesheet" type="text/css" />   <!-- 下面的样式，仅是为了显示代码，而不应该在项目中使用-->
+   <link href="../assets/css/prettify.css" rel="stylesheet" type="text/css" />
+   <style type="text/css">
+    code {
+      padding: 0px 4px;
+      color: #d14;
+      background-color: #f7f7f9;
+      border: 1px solid #e1e1e8;
+    }
+   </style>
+ </head>
+ <body>
+  
+    
+    <div class="container">
+      <div class="row">
+        <h2>柱状图</h2>
+        <div class="span24" id="canvas"></div>
+      </div>
+    
+
+    <div class="row">
+      <div class="span8">
+        <h2>简介</h2>
+        <p>这里仅仅是介绍最简单的饼图使用，包括：</p>
+        <ol>
+          <li>创建饼图表</li>
+          <li>声明标题、饼图配置项</li>
+          <li>plotCfg声明边框、tooltip格式化</li>
+        </ol>
+        <p>更多的饼图示例请参考：<a href="http://builive.com/chart/pie.php">饼图demo</a></p>
+      </div>
+      <div class="span16">
+        <h2>代码</h2>
+        <pre class="prettyprint linenums">
+BUI.use('bui/chart',function (Chart) {
+  
+  var chart = new Chart.Chart({
+        render : '#canvas',
+        width : 950,
+        height : 500,
+        title : {
+          text : '浏览器分布图'
+        },
+        legend : null ,//不显示图例
+        seriesOptions : { //设置多个序列共同的属性
+          pieCfg : {
+            allowPointSelect : true,
+            labels : {
+              distance : 40,
+              label : {
+                //文本信息可以在此配置
+              },
+              renderer : function(value,item){ //格式化文本
+                return value + ' ' + (item.point.percent * 100).toFixed(2)  + '%'; 
+              }
+            }
+          }
+        },
+        tooltip : {
+          pointRenderer : function(point){
+            return (point.percent * 100).toFixed(2)+ '%';
+          }
+        },
+        series : [{
+            type: 'pie',
+            name: 'Browser share',
+            data: [
+              ['Firefox',   45.0],
+              ['IE',       26.8],
+              {
+                  name: 'Chrome',
+                  y: 12.8,
+                  sliced: true,
+                  selected: true
+              },
+              ['Safari',    8.5],
+              ['Opera',     6.2],
+              ['Others',   0.7]
+            ]
+        }]
+      });
+
+      chart.render();
+  });
+ 
+        </pre>
+      </div>
+    </div>
+  </div>
+  <script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"></script>
+  <script type="text/javascript" src="../assets/js/bui-min.js"></script>
+
+  <script type="text/javascript" src="../assets/js/config-min.js"></script>
+  <script type="text/javascript">
+    BUI.use('common/page');
+
+    BUI.use('bui/chart',function (Chart) {
+      
+        var chart = new Chart.Chart({
+          render : '#canvas',
+          width : 950,
+          height : 500,
+          title : {
+            text : '浏览器分布图'
+          },
+          legend : null ,//不显示图例
+          seriesOptions : { //设置多个序列共同的属性
+            pieCfg : {
+              allowPointSelect : true,
+              labels : {
+                distance : 40,
+                label : {
+                  //文本信息可以在此配置
+                },
+                renderer : function(value,item){ //格式化文本
+                  return value + ' ' + (item.point.percent * 100).toFixed(2)  + '%'; 
+                }
+              }
+            }
+          },
+          tooltip : {
+            pointRenderer : function(point){
+              return (point.percent * 100).toFixed(2)+ '%';
+            }
+          },
+          series : [{
+              type: 'pie',
+              name: 'Browser share',
+              data: [
+                ['Firefox',   45.0],
+                ['IE',       26.8],
+                {
+                    name: 'Chrome',
+                    y: 12.8,
+                    sliced: true,
+                    selected: true
+                },
+                ['Safari',    8.5],
+                ['Opera',     6.2],
+                ['Others',   0.7]
+              ]
+          }]
+        });
+ 
+        chart.render();
+    });
+
+  </script>
+  
+  <!-- 仅仅为了显示代码使用，不要在项目中引入使用-->
+  <script type="text/javascript" src="../assets/js/prettify.js"></script>
+  <script type="text/javascript">
+    //$(function () {
+      prettyPrint();
+    //});
+  </script>  
+
+<body>
+</html>  

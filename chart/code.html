@@ -1,0 +1,119 @@
+<!DOCTYPE HTML>
+<html>
+ <head>
+  <title> 图表代码结构</title>
+   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+       <link href="../assets/css/dpl-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/bui-min.css" rel="stylesheet" type="text/css" />
+    <link href="../assets/css/page-min.css" rel="stylesheet" type="text/css" />   <!-- 下面的样式，仅是为了显示代码，而不应该在项目中使用-->
+   <link href="../assets/css/prettify.css" rel="stylesheet" type="text/css" />
+   <style type="text/css">
+    code {
+      padding: 0px 4px;
+      color: #d14;
+      background-color: #f7f7f9;
+      border: 1px solid #e1e1e8;
+    }
+   </style>
+ </head>
+ <body>
+  
+    
+    <div class="container">
+     <div class="row">
+       <div class="span4">
+         <h2>整体结构</h2>
+         <ol>
+           <li>页面声明</li>
+           <li>资源文件</li>
+           <li>图表的文件</li>
+           <li>图表引入</li>
+           <li>创建图表</li>
+         </ol>
+       </div>
+       <div class="span20">
+         <pre class="prettyprint linenums">
+&lt;!DOCTYPE HTML&gt;
+&lt;html&gt;
+ &lt;head&gt;
+  &lt;title&gt; 资源文件结构&lt;/title&gt;
+    &lt;meta http-equiv="Content-Type" content="text/html; charset=utf-8" /&gt;
+    &lt;link href="../assets/css/dpl-min.css" rel="stylesheet" type="text/css" /&gt;
+    &lt;link href="../assets/css/bui-min.css" rel="stylesheet" type="text/css" /&gt;
+    &lt;link href="../assets/css/page-min.css" rel="stylesheet" type="text/css" /&gt;  
+ &lt;/head&gt;
+ &lt;body&gt;
+  
+  &lt;div class="container"&gt;
+     &lt;div id="chart"&gt;
+     
+     &lt;/div&gt;
+  &lt;/div&gt;
+  &lt;script type="text/javascript" src="../assets/js/jquery-1.8.1.min.js"&gt;&lt;/script&gt;
+  &lt;script type="text/javascript" src="../assets/js/bui-min.js"&gt;&lt;/script&gt;
+  &lt;!-- 如果不使用页面内部跳转，则下面 script 标签不需要,同时不需要引入 common/page --&gt;
+  &lt;script type="text/javascript" src="../assets/js/config-min.js"&gt;&lt;/script&gt;
+
+  &lt;script type="text/javascript"&gt;
+    BUI.use('common/page'); //页面链接跳转
+
+    BUI.use('bui/chart',function(Chart){
+      var chart = new Chart.Chart({
+          //Chart 的配置项
+      });
+
+      chart.render();
+    });
+  &lt;/script&gt;
+
+&lt;body&gt;
+&lt;/html&gt; 
+
+         </pre>
+       </div>
+     </div>
+     <div class="row">
+       <div class="span12">
+         <h2>资源文件</h2>
+         <p>显示图表需要,chart-min.js和graphic-min.js，保证在assets/js/目录下有这两个文件:</p>
+         <p><img src="../assets/img/chart.png" /></p>
+       </div>
+       <div class="span12">
+         <h2>js引入</h2>
+         <p>由于chart可以通过BUI.use的方式引入，所以不需要直接引入chart-min.js：</p>
+         <pre class="prettyprint linenums">
+&lt;script type="text/javascript"&gt;
+
+  BUI.use('bui/chart',function(Chart){
+    var chart = new Chart.Chart({
+        //Chart 的配置项
+    });
+
+    chart.render();
+  });
+&lt;/script&gt;
+         </pre>
+       </div>
+     </div>
+     <div class="row">
+       <div class="span24">
+         <h2>几点说明</h2>
+         <ol>
+           <li>文档声明为 <code>&lt;!doctype html&gt;</code>,文件格式是utf-8</li>
+           <li>css文件在 title中引入，js在页面底部引入</li>
+           <li>页面引入的 prettify.js和prettify.css仅是为了展示代码使用</li>
+         </ol>
+       </div>
+     </div>
+    </div>
+
+  <!-- 仅仅为了显示代码使用，不要在项目中引入使用-->
+  <script type="text/javascript" src="../assets/js/prettify.js"></script>
+  <script type="text/javascript">
+    //$(function () {
+      prettyPrint();
+    //});
+  </script>  
+
+<body>
+</html>  
